@@ -1,70 +1,3 @@
-
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-
-#include "mem.h"
-
-
-#ifdef MEM_DEBUG
-int mem_cur_size;
-int mem_max_size;
-#endif
-
-inline void comp_free(void *ptr)
-{
-#ifdef MEM_DEBUG
-        mem_cur_size -= malloc_usable_size(ptr);
-#endif
-
-        nel_dealloca(ptr);	//free(ptr); zhangbin, 2006-7-17
-}
-
-void *comp_malloc(unsigned long size)
-{
-        void *ptr;
-        nel_malloc(ptr, size, char);
-        if (!ptr && size)
-                fprintf(stderr, "memory full");
-#ifdef MEM_DEBUG
-
-        mem_cur_size += malloc_usable_size(ptr);
-        if (mem_cur_size > mem_max_size)
-                mem_max_size = mem_cur_size;
-#endif
-
-        return ptr;
-}
-
-void *comp_mallocz(unsigned long size)
-{
-        void *ptr;
-        ptr = comp_malloc(size);
-        memset(ptr, 0, size);
-        return ptr;
-}
-
-inline void *comp_realloc(void *ptr, unsigned long size)
-{
-        void *ptr1;
-#ifdef MEM_DEBUG
-
-        mem_cur_size -= malloc_usable_size(ptr);
-#endif
-
-        ptr1 = realloc(ptr, size);
-#ifdef MEM_DEBUG
-        /* NOTE: count not correct if alloc error, but not critical */
-        mem_cur_size += malloc_usable_size(ptr1);
-        if (mem_cur_size > mem_max_size)
-                mem_max_size = mem_cur_size;
-#endif
-
-        return ptr1;
-}
-
-//copy from lib_tcpapi's mem.c
-//2006-7-17
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -79,8 +12,7 @@ struct mem_info {
 	size_t size;
 	char *file;
 	int line;
-	//added by zhangbin, 2006-7-20
-	int flag
+	int flag;
 };
 static struct mem_info *mInfo = NULL;
 static int recNum = 0;
@@ -122,7 +54,6 @@ void mem_checkAll()
 static unsigned int total_alloc = 0;
 static unsigned int total_free = 0;
 
-/* NOTE,NOTE,NOTE, 2005.12.5 by wyong */
 unsigned char *Realloc(unsigned char *buf, int size,  char *file, int line)
 {
 	unsigned char *s = NULL;
@@ -180,8 +111,7 @@ unsigned char *Malloc(int size, char *file, int line)
 		for (i = 0; i < recNum; i++) {
 			if (mInfo[i].pAlloced == NULL) {
 				mInfo[i].pPointer = buf;
-/*
-				//added by zhangbin, 2006-7-24
+				/*
 				int j=0;
 				for(j=0; j<i; j++)
 				{
@@ -192,13 +122,13 @@ unsigned char *Malloc(int size, char *file, int line)
 						exit(-1);
 					}
 				}
-				//end
-*/
+				*/
+
 				mInfo[i].pAlloced = buf + PATCH_SIZE;
 				mInfo[i].size = size;
 				mInfo[i].file = file;
 				mInfo[i].line = line;
-				mInfo[i].flag = 1;	//added b zhangbin, 2006-7-20
+				mInfo[i].flag = 1;
 				memset(buf, 0, size + PATCH_SIZE * 2);
 				buf += PATCH_SIZE;
 				break;
@@ -230,13 +160,11 @@ void Free(unsigned char *buf, char *file, int line)
 		int i;
 		for (i = 0; i < recNum; i++) {
 			if (mInfo[i].pAlloced == buf) {
-				//added by zhangbin, 2006-7-25
 				if(!mInfo[i].flag)
 				{
 					fprintf(stderr, "re-free!\n");
 					assert(0);
 				}
-				//end
 				assert(mInfo[i].pPointer ==
 					   (mInfo[i].pAlloced - PATCH_SIZE));
 				mInfo[i].pAlloced = NULL;
@@ -279,7 +207,7 @@ void PrintNotFree()
 	{
 		if(mInfo[i].flag)
 		{
-			printf("%s, %d(line), %d(size), %d(i)\n", mInfo[i].file, mInfo[i].line, mInfo[i].size, i);
+			printf("%s, %d(line), %lu(size), %d(i)\n", mInfo[i].file, mInfo[i].line, mInfo[i].size, i);
 			flag=1;
 		}
 	}

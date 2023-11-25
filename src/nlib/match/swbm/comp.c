@@ -1,21 +1,9 @@
-/*
- * swbm_comp.c
- * $Id: swbm_comp.c,v 1.2 2006/03/17 05:50:16 wyong Exp $
- */
-
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "nlib/match/swbm.h"
-
-#if 0
-#include "comp.h"
-#include "ptn.h"
-#include "same.h"
-#include "strm.h"
-#include "exec.h"
-#endif
 #include "trie.h"
 
 

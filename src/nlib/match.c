@@ -1,8 +1,3 @@
-/*
- * match.c
- * $Id: match.c,v 1.15 2006/12/07 08:47:32 zhangb Exp $
- */
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -13,15 +8,12 @@
 #include "stmt.h"
 #include "opt.h"
 
-//wyong, 20230823
 #include "nlib/match/conv_char.h"
 #include "nlib/match/dfa.h" 
 #include "nlib/match.h"
 #include "nlib/stream.h"
 #include "nlib/hashtab.h"
-
-
-#include "mem.h"
+#include "nlib/match/swbm.h" 
 
 
 #define SETMIN(a,b) if ( (a) > (b) ) { (a) = (b); }
@@ -48,9 +40,7 @@ int stream_match(struct stream *stream, struct match_info *ms);
 #ifdef	USE_PCRE
 #define OVECCOUNT 30    /* should be a multiple of 3 */
 #define PCRE_PATTERN_SIZE (65535*2)   
-#define PCRE_DFA_WORKSPACE_SIZE 1000 * 10 /* change from 1000 -> 1000 * 10 
-					     bugfix for liuj, 
-					     wyong, 2006.8.30 */
+#define PCRE_DFA_WORKSPACE_SIZE 1000 * 10 
 #endif
 
 struct match_info *match_init(unsigned char **, int , int );
@@ -79,15 +69,9 @@ int delete_backslash(struct rule_item *ri)
                 }
         }
         newlen = len - num;
-        //modified by zhangbin, 2006-7-17, malloc=>nel_malloc
-#if 1
-        nel_malloc(newpat, newlen, char);
-#else
         newpat = (char *)malloc(newlen * sizeof(char));
-#endif
-        //end, 2006-7-17
         if (!newpat) {
-                gen_error(NULL, "malloc error \n");
+		fprintf(stderr, "malloc error \n"); 
                 return -1;
         }
         j = 0;
@@ -105,11 +89,11 @@ int delete_backslash(struct rule_item *ri)
                 }
         }
         if (j > newlen) {
-                gen_error(NULL, "memory overflow \n");
+                fprintf(stderr, "memory overflow \n");
                 return -1;
         }
 
-        nel_free(ri->pat);      
+	free(ri->pat); 
 
         ri->pat = newpat;
         ri->pat_len = newlen;
@@ -207,13 +191,13 @@ void match_info_free(struct match_info *ms)
 {
 	if(ms) {
 #ifdef	USE_PCRE
-		nel_free(ms->re);	
-		nel_free(ms->extra);	
+		free(ms->re);	
+		free(ms->extra);	
 #elif	USE_DFA
                 dfafree(ms->dfa);
 #endif
-		nel_free(ms->retsyms);	
-		nel_free(ms);		
+		free(ms->retsyms);
+		free(ms);		
 	}
 }
 
@@ -280,7 +264,7 @@ struct match_info *match_info_alloc(
 	static unsigned int id = 1;    
 	struct match_info *ms = NULL;
 	
-	nel_malloc(ms, 1, struct match_info);
+	ms = malloc ( sizeof (struct match_info )); 
 	if(ms){
 		ms->id = id;    
 		ms->retsyms = retsyms;
@@ -352,7 +336,7 @@ static int array_to_pattern(unsigned char **pattern_array,
 
 #ifdef	USE_PCRE
 	/* wondering why DFA needn't do the following,it 's said that  
-	Lazy DFA do this automatically,is that true ?  wyong, 20090512 */
+	Lazy DFA do this automatically,is that true ?  */
 	offset += sprintf(pattern + offset, ".*(");
 #endif
 
@@ -374,8 +358,6 @@ static int array_to_pattern(unsigned char **pattern_array,
 #elif	USE_DFA
 		
                 offset += sprintf(pattern+offset, (i==0)?"(%s)":"|(%s)", pat);
-		
-		//wyong, 20090605
                 offset += sprintf(pattern+offset, "%c%d", '\\',i + 1 );
 
 		//hashinsert(start, offset_table, &hp);
@@ -426,7 +408,7 @@ int do_buf_exact_match(unsigned char *text, int len, struct exact_match_info *ms
         }
 
 #ifdef	USE_ACBM
-	/* xiayu 2005.11.5 will support charset in the future
+	/* will support charset in the future
 	   (otherwise should get the stream's charset here) */
 	ret = acbm_match(	text, 
 				len, 
@@ -466,7 +448,7 @@ int do_buf_match(unsigned char *text, int len, struct match_info *ms)
 	}
 	
 #ifdef	USE_PCRE
-	//memset(ms->retsyms, 0, ms->retnum);/* wyong, 2006.7.6 */
+	//memset(ms->retsyms, 0, ms->retnum);
 	rc = pcre_exec(
 		ms->re,   	/* the compiled pattern */
 		ms->extra,	/* extra data - we didn't study the pattern */
@@ -483,9 +465,8 @@ int do_buf_match(unsigned char *text, int len, struct match_info *ms)
 			&backref, 
 			&tmpstate);   // 0 is buf_match
 
-	/* wyong, 20090607 */	
 	if (rc >= 0 ) {
-		position_set *ps = (position_set *)backref; 
+		position_set *ps = (position_set *)(long ) backref; 
 		if (ps != NULL){
 			int rindex, ruleid;
 			for(rindex = 0; rindex < ps->nelem ; rindex++) {
@@ -538,7 +519,7 @@ int do_stream_exact_match(struct stream *stream, struct exact_match_info *ms)
                 return -1;
 
 #ifdef	USE_ACBM
-	/* xiayu 2005.11.5 will support charset in the future
+	/* will support charset in the future
 	   (otherwise should get the stream's charset here) */
 	ret = acbm_match(stream->buf, 
 				stream->buf_len, 
@@ -577,7 +558,7 @@ int do_stream_match(struct stream *stream, struct match_info *ms)
 #endif
 	
 	if(stream == NULL || stream->buf == NULL || ms == NULL) {
-		return 0;//wyong, 2006.7.6 
+		return 0;
 	}
 
 	/* get stream_state of this ms from stream by ms->id */
@@ -587,7 +568,7 @@ int do_stream_match(struct stream *stream, struct match_info *ms)
 
 #ifdef	USE_PCRE	
 	if ( ss->state_buf == NULL ) {
-		nel_calloc(ss->state_buf, PCRE_DFA_WORKSPACE_SIZE, int);
+		ss->state_buf = calloc(sizeof(int), PCRE_DFA_WORKSPACE_SIZE ); 
 		if (ss->state_buf == NULL)
 		{
 		  return -1;
@@ -596,7 +577,7 @@ int do_stream_match(struct stream *stream, struct match_info *ms)
 	}
 
 	
-	//memset(ms->retsyms, 0, ms->retnum);/* wyong, 2006.7.6 */
+	//memset(ms->retsyms, 0, ms->retnum);
 	rc = pcre_dfa_exec(
 		ms->re,   	/* the compiled pattern */
 		ms->extra,	/* extra data - we didn't study the pattern */
@@ -616,9 +597,8 @@ int do_stream_match(struct stream *stream, struct match_info *ms)
 			&backref, 
 			&ss->state);
 
-	/* wyong, 20090607 */	
 	if (rc >= 0 ) {
-		position_set *ps = (position_set *)backref; 
+		position_set *ps = (position_set *)(long ) backref; 
 		if (ps != NULL){
 			int rindex, ruleid;
 			for(rindex = 0; rindex < ps->nelem ; rindex++) {
@@ -665,7 +645,6 @@ int is_exact_match(struct exact_match_info *ms, int id)
         int i;
 
         if(ms == NULL) {
-                /* wyong, 2005.5.30 */
                 return 0;
         }
 
@@ -755,68 +734,53 @@ static nel_symbol *is_match_func_init(struct nel_eng *eng)
 	nel_symbol *symbol;
 	nel_list *args;
 
-	//printf("is_match_func_init(10)\n");
 	symbol = nel_lookup_symbol("is_match", eng->nel_static_ident_hash, 
 		eng->nel_static_location_hash,  NULL);
 	if( symbol == NULL) {
 
-		//printf("is_match_func_init(20)\n");
 		symbol = nel_static_symbol_alloc(eng, 
 					nel_insert_name(eng,"id"), 
 				nel_int_type, NULL, nel_C_FORMAL, 
 				nel_lhs_type(nel_int_type), nel_L_C, 1);
-		//printf("is_match_func_init(30)\n");
 		args = nel_list_alloc(eng, 0, symbol, NULL);
 
-		//printf("is_match_func_init(40)\n");
 		symbol = nel_lookup_symbol("match_info", 
 					eng->nel_static_tag_hash,NULL);
-		//printf("is_match_func_init(50)\n");
 		type = symbol->type->typedef_name.descriptor;
-		//printf("is_match_func_init(60)\n");
 		type = nel_type_alloc(eng, nel_D_POINTER, 
 					sizeof(struct match_info *), 
 					nel_alignment_of(struct match_info *), 
 					0,0,type);
-		//printf("is_match_func_init(70)\n");
 		symbol = nel_static_symbol_alloc(eng, 
 					nel_insert_name(eng,"ms"), 
 					type, NULL, nel_C_FORMAL, 
 					nel_lhs_type(type), nel_L_C, 1);
-		//printf("is_match_func_init(80)\n");
 		args = nel_list_alloc(eng, 0, symbol, args);
 
 
-		//printf("is_match_func_init(90)\n");
 		type = nel_type_alloc (eng, nel_D_FUNCTION, 
 					0, 0, 0, 0, 0, 0, nel_int_type, 
 					args, NULL, NULL);
 
 		
-		//printf("is_match_func_init(100)\n");
 		symbol = nel_static_symbol_alloc (eng, 
 					nel_insert_name(eng, "is_match"), 
 					type, (char *) is_match, 
 					nel_C_COMPILED_FUNCTION,
 					nel_lhs_type(type), nel_L_C, 0);
 
-		//printf("is_match_func_init(110)\n");
 		nel_insert_symbol (eng, symbol, eng->nel_static_ident_hash);
 
 	}else if( symbol->value == NULL) {
-		//printf("is_match_func_init(120)\n");
 		symbol->value = (char *) is_match;
 	}else if( symbol->value != (char *)is_match) {
-		//printf("is_match_func_init(130)\n");
 		//printf(eng, "the earily inserted symbol have difference"
 		//" value with is_match!\n");
 	}
 	else {
-		//printf("is_match_func_init(140)\n");
 		/* is_match was successfully inserted */
 	}
 	
-	//printf("is_match_func_init(150)\n");
 	return symbol;
 
 }
@@ -1057,7 +1021,6 @@ static nel_expr *stream_exact_match_funcall_alloc(struct nel_eng *eng,
 					eng->nel_static_location_hash, NULL);
 	func = nel_expr_alloc(eng, nel_O_SYMBOL, symbol);
 
-	//bugfix, wyong,2005.6.2 
 	symbol = nel_lookup_symbol("exact_match_info", 
 				eng->nel_static_tag_hash,NULL);	
 	type = symbol->type->typedef_name.descriptor;
@@ -1077,12 +1040,7 @@ static nel_expr *stream_exact_match_funcall_alloc(struct nel_eng *eng,
 
 	ms_expr_list  = nel_expr_list_alloc(eng, expr, NULL);	
 
-#if 1
 	data_expr_list  = nel_expr_list_alloc(eng, pnode->varlist[0], ms_expr_list);
-#else
-	//NOTE,NOTE,NOTE, need check this. wyong, 20090516
-	data_expr_list  = nel_expr_list_alloc(eng, pnode->exp->opr.arglist[0], ms_expr_list);
-#endif
 	fun_call = nel_expr_alloc(eng, nel_O_FUNCALL, func, 2, data_expr_list);
 
 
@@ -1106,7 +1064,6 @@ static nel_expr *stream_match_funcall_alloc(	struct nel_eng *eng,
 					eng->nel_static_location_hash, NULL);
 	func = nel_expr_alloc(eng, nel_O_SYMBOL, symbol);
 
-	//bugfix, wyong,2005.6.2 
 	symbol = nel_lookup_symbol("match_info", eng->nel_static_tag_hash,NULL);	
 	type = symbol->type->typedef_name.descriptor;
 
@@ -1123,12 +1080,7 @@ static nel_expr *stream_match_funcall_alloc(	struct nel_eng *eng,
 
 	ms_expr_list  = nel_expr_list_alloc(eng, expr, NULL);	
 
-#if 1
 	data_expr_list  = nel_expr_list_alloc(eng, pnode->varlist[0], ms_expr_list);
-#else
-	//NOTE,NOTE,NOTE, need check this. wyong, 20090516
-	data_expr_list  = nel_expr_list_alloc(eng, pnode->exp->opr.arglist[0], ms_expr_list);
-#endif
 	fun_call = nel_expr_alloc(eng, nel_O_FUNCALL, func, 2, data_expr_list);
 
 
@@ -1278,7 +1230,6 @@ static struct rule_list *pnode_to_rlist(struct prior_node *pnode)
         for(i=0, exp=pnode->exp; exp; i++,exp=exp->next){
                 pid = NULL;
 
-                /* NOTE, NOTE, NOTE, I wonder */
                 //insert_int_list(&pid, exp->id_list->val);
                 pid = dup_int_list(exp->id_list);
                 if (!pid) {
@@ -1382,14 +1333,12 @@ static int pnode_to_pattern(struct prior_node *pnode,
 				return -1;
 			}
 
-			//wyong, 20090605
 			offset += sprintf(pattern + offset, "%c%d", '\\',pid->val + 1);
 
 			//hashinsert(/*offset*/ start, offset_table, &hp);
 			//hp->val = pid->val;
 #endif
 			//retval++;
-			//bugfix, wyong, 2006.7.11 
 			if( pid->val >= retval)
 				retval = pid->val + 1 ;
 		}
@@ -2163,10 +2112,7 @@ static nel_expr *clus_pre_match(struct nel_eng *eng, struct prior_node *pnode)
 #elif	USE_DFA
         char pattern[MAX_PATTERN_SIZE];
 
-	//wyong, 20230731 
         //int s_flag = RE_SYNTAX_POSIX_EGREP;
-
-	//bugfix, wyong, 20230825 
 	int s_flag = 	RE_INTERVALS |  
 			RE_NO_BK_BRACES |
 				RE_NO_BK_PARENS |
@@ -2185,7 +2131,7 @@ static nel_expr *clus_pre_match(struct nel_eng *eng, struct prior_node *pnode)
 		goto error;
 	}
 
-	/*set stream_flag and nocasae_flag, wyong, 2006.6.25 */
+	/*set stream_flag and nocasae_flag */
 	if (!pnode->sbj || !(func_sym = pnode->sbj->symbol.symbol)) {
 		goto error;
 	}
@@ -2208,7 +2154,6 @@ static nel_expr *clus_pre_match(struct nel_eng *eng, struct prior_node *pnode)
 	if (nocase_flag & 0x02)
                 m_flag = '\n';
 
-	// wyong, 20230731
 	if( nocase_flag & 0x04)
                 s_flag |= RE_DOT_NEWLINE;
 	
@@ -2226,8 +2171,7 @@ static nel_expr *clus_pre_match(struct nel_eng *eng, struct prior_node *pnode)
 		goto pattern_error;
 	}
 
-	// malloc result array (retnum)
-	nel_calloc(retsyms, retnum, int);
+	retsyms = calloc(sizeof(int), retnum); 
 	if(!retsyms)
 	{
 		goto result_array_error;
@@ -2235,7 +2179,7 @@ static nel_expr *clus_pre_match(struct nel_eng *eng, struct prior_node *pnode)
 
 #ifdef	USE_PCRE
 	/* malloc extra data with set pcre_data with result */
-	nel_malloc(extra, 1, struct pcre_extra);
+	extra = malloc(sizeof (pcre_extra)); 
 	if(!extra){
 		goto pcre_extra_error;
 	}
@@ -2267,24 +2211,28 @@ static nel_expr *clus_pre_match(struct nel_eng *eng, struct prior_node *pnode)
 	ms->extra = extra;
 
 #elif 	USE_DFA
-	nel_calloc(dfa, 1, struct dfa);
+	dfa = calloc(sizeof(struct dfa), 1) ; 
 	if (!dfa) {
 		goto result_array_error;
 	}
 
         // then compile the pattern with dfacomp
+#ifdef DFA_LAZY
         dfasyntax(dfa, s_flag , i_flag, m_flag, l_flag); 
+#else
+        dfasyntax(dfa, s_flag , i_flag, m_flag); 
+#endif 
 	dfacomp(dfa, pattern, pattern_len, 1);
 
-	// create match_info for those patterns, wyong, 20090516
-        if ((ms = match_info_alloc(/*map,*/dfa,  
+	// create match_info for those patterns
+        if ((ms = match_info_alloc(dfa,  
 				retsyms, 
 				retnum, 
 				offset_table)) ==NULL ) {
                 goto dfa_error;
         }
 
-	dfa->ext_data = ms;		// wyong, 20090516 
+	dfa->ext_data = ms;
 
 #endif
 
@@ -2314,26 +2262,27 @@ ms_error:
 #ifdef	USE_PCRE
 pcre_re_error:
 	if(re){
-		nel_free(re);	
+		free(re);	
 	}
 
 pcre_extra_error:
 	if(extra){
-		nel_free(extra);
+		free(extra);
 	}
 
 #elif	USE_DFA
 dfa_error:
 	if(dfa){
                 dfafree(dfa);
-		nel_free(dfa);
+		free(dfa);
 	}
 #endif
 
 
 result_array_error:
 	if(retsyms){
-		nel_free(retsyms);	
+		free(retsyms);	
+
 	}
 
 pattern_error:
@@ -2471,10 +2420,7 @@ struct match_info *match_init(unsigned char **array, int array_size, int options
 #elif	USE_DFA
         char pattern[MAX_PATTERN_SIZE];
 
-	//wyong, 20230731
         //int s_flag = RE_SYNTAX_POSIX_EGREP;
-
-	//bugfix, wyong, 20230825 
 	int s_flag = 	RE_INTERVALS |  
 			RE_NO_BK_BRACES |
 				RE_NO_BK_PARENS |
@@ -2509,15 +2455,14 @@ struct match_info *match_init(unsigned char **array, int array_size, int options
 		goto error;
 	}
 
-	// malloc result array (retnum)
-	nel_calloc(retsyms, retnum, int);
+	retsyms = calloc(sizeof(int), retnum) ; 
 	if(!retsyms) {
 		goto error;
 	}
 
 #ifdef	USE_PCRE
 	// malloc extra data with set pcre_data with result
-	nel_malloc(extra, 1, pcre_extra);
+	extra = malloc(sizeof(pcre_extra)); 
 	if(!extra){
 		goto error;
 	}
@@ -2558,12 +2503,16 @@ struct match_info *match_init(unsigned char **array, int array_size, int options
 	if(options & 0x08)
 		l_flag = 1;
                 
-	nel_calloc(dfa, 1, struct dfa);
+	dfa = calloc(sizeof(struct dfa), 1 ) ; 
 	if (!dfa) {
 		goto error;
 	}
 
+#ifdef DFA_LAZY
 	dfasyntax (dfa, s_flag, i_flag, m_flag, l_flag);
+#else 
+	dfasyntax (dfa, s_flag, i_flag, m_flag);
+#endif 
         dfacomp(dfa, pattern, pattern_len, 1);
 
         if ((ms = match_info_alloc(dfa,
@@ -2584,17 +2533,24 @@ error:
 	}
 
 #ifdef	USE_PCRE
-	if(re) nel_free(re);
-	if(extra) nel_free(extra);	
+	if(re) { 
+		free(re);
+	}
+	if(extra) {
+		free(extra);	
+	}
 
 #elif	USE_DFA
      	if (dfa) {
                 dfafree(dfa);
-		nel_free(dfa);
+		free(dfa);
         }
 #endif
 
-	if(retsyms) nel_free(retsyms);	
+	if(retsyms) {
+		free(retsyms);	
+	}
+
 	//if(offset_table) {
 	//	hash_free(offset_table);
 	//}
@@ -2933,7 +2889,7 @@ nel_symbol *INIT_STREAM_EXACT_MATCH_FUNC( struct nel_eng *eng,
 
 	symbol->type->function.prev_hander = pre;
 	symbol->type->function.post_hander = post;
-	symbol->type->function.key_nums    = 1 ;   //wyong,20090516
+	symbol->type->function.key_nums    = 1 ;  
 
 	return symbol;
 }
@@ -3019,7 +2975,7 @@ nel_symbol *INIT_STREAM_MATCH_FUNC( struct nel_eng *eng,
 
 	symbol->type->function.prev_hander = pre;
 	symbol->type->function.post_hander = post;
-	symbol->type->function.key_nums    = 1 ;   //wyong,20090516
+	symbol->type->function.key_nums    = 1 ;  
 
 	return symbol;
 }
@@ -3283,22 +3239,14 @@ int nel_match_init(struct nel_eng *eng)
 	nel_symbol *clus_pre_exact_match_symbol;
 	nel_symbol *clus_post_exact_match_symbol;
 
-	//printf("nel_match_init(10)\n");
 	is_match_func_init(eng);
-	//printf("nel_match_init(20)\n");
 	is_exact_match_func_init(eng);
-	//printf("nel_match_init(30)\n");
 	is_no_match_func_init(eng);
-	//printf("nel_match_init(40)\n");
 
 	match_init_func_init(eng);
-	//printf("nel_match_init(50)\n");
 	match_free_func_init(eng);
-	//printf("nel_match_init(60)\n");
 	exact_match_init_func_init(eng);
-	//printf("nel_match_init(70)\n");
 	exact_match_free_func_init(eng);
-	//printf("nel_match_init(80)\n");
 
 	/*
 	clus_pre_match_symbol = clus_pre_match_func_init(eng);
@@ -3311,148 +3259,119 @@ int nel_match_init(struct nel_eng *eng)
 	clus_pre_match_symbol  = INIT_PREV_MATCH_FUNC(eng, 
 						"clus_pre_match", 
 						clus_pre_match );
-	//printf("nel_match_init(90)\n");
 	clus_post_match_symbol = INIT_POST_MATCH_FUNC(eng, 
 							"clus_post_match", 
 							clus_post_match );
-	//printf("nel_match_init(100)\n");
 	clus_post_no_match_symbol = INIT_POST_MATCH_FUNC(eng, 
 						"clus_post_no_match", 
 						clus_post_no_match );
 
-	//printf("nel_match_init(110)\n");
 
 	clus_pre_exact_match_symbol = INIT_PREV_MATCH_FUNC(eng, 
 						"clus_pre_exact_match", 
 						clus_pre_exact_match);
-	//printf("nel_match_init(120)\n");
 	clus_post_exact_match_symbol = INIT_POST_MATCH_FUNC(eng, 
 						"clus_post_exact_match",
 						clus_post_exact_match);
 
-	//printf("nel_match_init(130)\n");
-	/* wyong, 20090609 */
 	INIT_STREAM_EXACT_MATCH_FUNC(eng, "stream_exact_match", 
 				     stream_exact_match, 
 				     (nel_symbol *)NULL, 
 				     (nel_symbol *)NULL);
-	//printf("nel_match_init(140)\n");
 	INIT_STREAM_EXACT_MATCH_FUNC(eng, "clus_stream_exact_match", 
 				     stream_exact_match, 
 				     clus_pre_exact_match_symbol, 
 				     clus_post_exact_match_symbol );
-	//printf("nel_match_init(150)\n");
 	INIT_BUFFER_EXACT_MATCH_FUNC(eng, "buf_exact_match", 
 				     buf_exact_match, 
 				     (nel_symbol *)NULL, 
 				     (nel_symbol *)NULL);
-	//printf("nel_match_init(160)\n");
 	INIT_BUFFER_EXACT_MATCH_FUNC(eng, "clus_buf_exact_match", 
 				     buf_exact_match, 
 				     clus_pre_exact_match_symbol, 
 				     clus_post_exact_match_symbol );
 
 
-	//printf("nel_match_init(170)\n");
 	INIT_STREAM_MATCH_FUNC(eng, "stream_match", 
 					stream_match, 
 					(nel_symbol *)NULL, 
 					(nel_symbol *)NULL);
-	//printf("nel_match_init(180)\n");
 	INIT_STREAM_MATCH_FUNC(eng, "clus_stream_case_match", 
 				stream_match, 
 				clus_pre_match_symbol, 
 				clus_post_match_symbol);		
-	//printf("nel_match_init(190)\n");
 	INIT_STREAM_MATCH_FUNC(eng, "clus_stream_nocase_match", 
 				stream_match, 
 				clus_pre_match_symbol, 
 				clus_post_match_symbol);		
-	//printf("nel_match_init(200)\n");
 	INIT_STREAM_MATCH_FUNC(eng, "clus_stream_dotall_nocase_match", 
 				stream_match, 
 				clus_pre_match_symbol, 
 				clus_post_match_symbol);		
-	//printf("nel_match_init(210)\n");
 	INIT_STREAM_MATCH_FUNC(eng, "clus_stream_dotall_multiline_nocase_match", 
 				stream_match, 
 				clus_pre_match_symbol, 
 				clus_post_match_symbol);		
 
-	//printf("nel_match_init(220)\n");
 
 	INIT_BUFFER_MATCH_FUNC(eng, "buf_match", 
 					buf_match, 
 					(nel_symbol *)NULL, 
 					(nel_symbol *)NULL);
 
-	//printf("nel_match_init(230)\n");
 	INIT_BUFFER_MATCH_FUNC(eng, "buf_no_match", 
 					buf_no_match, 
 					(nel_symbol *)NULL, 
 					(nel_symbol *)NULL);
-	//printf("nel_match_init(240)\n");
 	INIT_BUFFER_MATCH_FUNC(eng, "clus_buf_case_match", 
 				buf_match, 
 				clus_pre_match_symbol, 
 				clus_post_match_symbol);
-	//printf("nel_match_init(250)\n");
 	INIT_BUFFER_MATCH_FUNC(eng, "clus_buf_nocase_match", 
 				buf_match, 
 				clus_pre_match_symbol, 
 				clus_post_match_symbol);
-	//printf("nel_match_init(260)\n");
 	INIT_BUFFER_MATCH_FUNC(eng, "clus_buf_dotall_match", 
 				buf_match, 
 				clus_pre_match_symbol, 
 				clus_post_match_symbol);
-	//printf("nel_match_init(270)\n");
 	INIT_BUFFER_MATCH_FUNC(eng, "clus_buf_dotall_nocase_match", 
 				buf_match, 
 				clus_pre_match_symbol, 
 				clus_post_match_symbol);
-	//printf("nel_match_init(280)\n");
 	INIT_BUFFER_MATCH_FUNC(eng, "clus_buf_case_no_match", 
 				buf_no_match, 
 					clus_pre_match_symbol, 
 				clus_post_no_match_symbol);
-	//printf("nel_match_init(290)\n");
 	INIT_BUFFER_MATCH_FUNC(eng, "clus_buf_nocase_no_match", 
 				buf_no_match, 
 				clus_pre_match_symbol, 
 				clus_post_no_match_symbol);
-	//printf("nel_match_init(300)\n");
 	INIT_BUFFER_MATCH_FUNC(eng, "clus_buf_dotall_no_match", 
 				buf_no_match, 
 				clus_pre_match_symbol, 
 				clus_post_no_match_symbol);
-	//printf("nel_match_init(310)\n");
 	INIT_BUFFER_MATCH_FUNC(eng, "clus_buf_dotall_nocase_no_match", 
 				buf_no_match, 
 				clus_pre_match_symbol, 
 				clus_post_no_match_symbol);
-	//printf("nel_match_init(320)\n");
 	INIT_BUFFER_MATCH_FUNC(eng, "clus_buf_dotall_multiline_match", 
 				buf_match, 
 				clus_pre_match_symbol, 
 				clus_post_match_symbol);
-	//printf("nel_match_init(330)\n");
 	INIT_BUFFER_MATCH_FUNC(eng, "clus_buf_dotall_multiline_no_match", 
 				buf_no_match, 
 				clus_pre_match_symbol, 
 				clus_post_no_match_symbol);
-	//printf("nel_match_init(340)\n");
 	INIT_BUFFER_MATCH_FUNC(eng, "clus_buf_dotall_multiline_nocase_match", 
 				buf_match, 
 				clus_pre_match_symbol, 
 				clus_post_match_symbol);
-	//printf("nel_match_init(350)\n");
 	INIT_BUFFER_MATCH_FUNC(eng, "clus_buf_dotall_multiline_nocase_no_match", 
 				buf_no_match, 
 				clus_pre_match_symbol, 
 				clus_post_no_match_symbol);
 
-	//printf("nel_match_init(360)\n");
 	/* set callout as pcre_callout callback function */
 #ifdef	USE_PCRE
 	pcre_callout = pcre_callout_func;

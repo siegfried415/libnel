@@ -30,18 +30,18 @@
 
 
 #include "engine.h"
-#include <errors.h>
+#include "errors.h"
 #include "type.h"
 #include "intp.h"
 #include "lex.h"
-
-//wyong, 20230801 
-//#include "comp_elf.h"
-//#include "comp_io.h"
-
+#include "parser.h"
+#include "_stab.h" 
 #include "io.h"
 #include "prod.h"
 #include "mem.h"
+
+//#include "comp_elf.h"
+//#include "comp_io.h"
 
 /*****************************************************************************/
 /* nel_D_name () returns the string that is the identifier for <D_token>, an  */
@@ -698,7 +698,6 @@ int nel_coerce (struct nel_eng *eng, nel_type *new_type, char *new_value, nel_ty
 		}
 		break;
 
-	//bugfix, wyong, 20230817 
 	case nel_D_SIGNED_LONG_INT:
 		switch (old_D_token) {
 		case nel_D_SIGNED_CHAR:
@@ -749,7 +748,6 @@ int nel_coerce (struct nel_eng *eng, nel_type *new_type, char *new_value, nel_ty
 		}
 		break;
 
-	//bugfix, wyong, 20230821
 	case nel_D_UNSIGNED_LONG_INT:
 		switch (old_D_token) {
 		case nel_D_SIGNED_CHAR:
@@ -1010,7 +1008,7 @@ int nel_extract_bit_field (struct nel_eng *eng, nel_type *type, char *result, un
 	/* unneeded bits on the other side, leaving the significant bits   */
 	/* in the low-order position.                                      */
 	/*******************************************************************/
-	word <<= (CHAR_BIT * sizeof(unsigned_int) - lb - size);		//modified by zhangbin, 2006-5-24
+	word <<= (CHAR_BIT * sizeof(unsigned_int) - lb - size);	
 	word >>= (CHAR_BIT * sizeof (unsigned_int)) - size;
 
 	switch (type->simple.type) {
@@ -1261,7 +1259,7 @@ int s_u_has_member(struct nel_eng *eng, nel_type *type, nel_symbol *member)
 		{
 			register nel_symbol *symbol = scan->symbol;
 			if(! strcmp(symbol->name, member->name)) {
-				member->type = symbol->type; /* wyong, 2006.4.14 */
+				member->type = symbol->type; 
 				return 1;
 			}
 		}
@@ -1479,7 +1477,7 @@ static nel_type *nel_free_types = NULL;
 static nel_type_chunk *nel_type_chunks = NULL;
 
 
-/* log max rhs number , wyong, 2006.4.13 */
+/* log max rhs number */
 extern int rhs_num_max;
 
 /*****************************************************************************/
@@ -1505,7 +1503,10 @@ nel_type *nel_type_alloc (struct nel_eng *eng, register nel_D_token type, regist
 		/* first, try to re-use deallocated type descriptors */
 		/*****************************************************/
 		retval = nel_free_types;
-		nel_free_types = (nel_type *) nel_free_types->simple.size;
+
+		//nel_free_types = (nel_type *) nel_free_types->simple.size;
+		nel_free_types = (nel_type *) nel_free_types->simple.next;
+
 	} else {
 		/**************************************************************/
 		/* check for overflow of space allocated for type descriptors.*/
@@ -1531,9 +1532,7 @@ nel_type *nel_type_alloc (struct nel_eng *eng, register nel_D_token type, regist
 		retval = nel_types_next++;
 	}
 	
-	//added by zhangbin, 2006-7-26
 	nel_zero(sizeof(nel_type), retval);
-	//end
 	
 	/*************************/
 	/* exit critical section */
@@ -1551,6 +1550,8 @@ nel_type *nel_type_alloc (struct nel_eng *eng, register nel_D_token type, regist
 	retval->simple.traversed = 0;
 	retval->simple.size = size;
 
+	retval->simple.next = NULL; 
+
 	switch (type) {
 	case nel_D_ARRAY:
 		retval->array.base_type = va_arg (args, nel_type *);
@@ -1565,7 +1566,7 @@ nel_type *nel_type_alloc (struct nel_eng *eng, register nel_D_token type, regist
 		} else {
 			retval->array.ub.expr= va_arg (args, nel_expr *);
 		}
-		retval->array.val_len = 0;	//added by zhangbin, 2006-6-23
+		retval->array.val_len = 0;
 		break;
 
 	case nel_D_ENUM:
@@ -1589,7 +1590,6 @@ nel_type *nel_type_alloc (struct nel_eng *eng, register nel_D_token type, regist
 		retval->function.blocks = va_arg (args, nel_block *);
 		retval->function.file = va_arg (args, nel_symbol *);
 
-		/* wyong, 2004.6.21 */
 		retval->function.key_nums = 0;
 		break;
 	case nel_D_POINTER:
@@ -1633,7 +1633,7 @@ nel_type *nel_type_alloc (struct nel_eng *eng, register nel_D_token type, regist
 				retval->prod.rhs_num ++;
 			}
 
-			if(retval->prod.rhs_num > rhs_num_max )	/* wyong, 2006.4.13 */
+			if(retval->prod.rhs_num > rhs_num_max )	
 				rhs_num_max = retval->prod.rhs_num;
 
 			if(strcmp(retval->prod.lhs->name, "others")
@@ -1693,7 +1693,8 @@ void nel_type_dealloc (register nel_type *type)
 	/*******************************************/
 	nel_lock (&nel_types_lock);
 
-	type->simple.size = (unsigned_int) nel_free_types;
+	//type->simple.size = (unsigned_int) nel_free_types;
+	type->simple.next = nel_free_types;
 	nel_free_types = type;
 
 	/*************************/
@@ -2212,17 +2213,8 @@ static nel_list_chunk *nel_list_chunks = NULL;
 
 struct nel_LIST *__make_entry(struct nel_SYMBOL *symbol)
 {
-	//modified by zhangbin, 2006-7-17, malloc=>nel_malloc
-#if 1
-	struct nel_LIST *list;
-	list = nel_list_alloc(NULL, 0, symbol, NULL);
-	//nel_malloc(list, 1, struct nel_LIST); //modified by zhangbin, 2006-7-20
-#else
-	struct nel_LIST *list =(struct nel_LIST *)malloc(sizeof(struct nel_LIST ));
-#endif
-	//end, 2006-7-17
-	if(list)
-	{
+	struct nel_LIST *list = nel_list_alloc(NULL, 0, symbol, NULL);
+	if(list) {
 		list->next = (struct nel_LIST *)0;
 		list->symbol= symbol;
 	}
@@ -2233,23 +2225,20 @@ struct nel_LIST *__make_entry(struct nel_SYMBOL *symbol)
 void __append_entry_to(struct nel_LIST **plist, struct nel_LIST *list )
 {
 	struct nel_LIST *this, *prev;
-
-	if (*plist != (struct nel_LIST *)0)
-	{
+	if (*plist != (struct nel_LIST *)0) {
 		prev = (struct nel_LIST *)0;
 		this= *plist;
-		while(this)
-		{
+		while(this) {
 			prev=this;
 			this=this->next;
 		}
 
-		if(prev)
-		{
+		if(prev) {
 			prev->next = list;
 		}
-	} else
-	{
+	} 
+
+	else {
 		*plist = list;
 	}
 
@@ -2270,16 +2259,15 @@ int __lookup_item_from(struct nel_LIST **plist, struct nel_SYMBOL *symbol)
 void __get_item_out_from(struct nel_LIST **plist, struct nel_SYMBOL *symbol)
 {
 	struct nel_LIST *scan, *prev;
-	for( prev=(struct nel_LIST *)0, scan=*plist; scan; prev=scan, scan=scan->next )
-	{
+	for( prev=(struct nel_LIST *)0, scan=*plist; scan; prev=scan, scan=scan->next ) {
 		if (scan->symbol == symbol) {
 			if(prev) {
 				prev->next = scan->next;
 			} else {
 				*plist = scan->next;
 			}
-			nel_list_dealloc(scan);	//modified by zhangbin, 2006-7-20
-			//nel_dealloca(scan); //free(scan); zhangbin, 2006-7-17
+			nel_list_dealloc(scan);	
+			//nel_dealloca(scan); 
 			break;
 		}
 	}
@@ -2299,12 +2287,11 @@ struct nel_SYMBOL * __get_first_out_from(struct nel_LIST **plist)
 {
 	struct nel_SYMBOL *symbol;
 	struct nel_LIST *fst;
-	if( (fst = (*plist)) )
-	{
+	if( (fst = (*plist)) ) {
 		symbol = fst->symbol;
 		*plist = fst->next;
-		nel_list_dealloc(fst);	//modified by zhangbin, 2006-7-20
-		//nel_dealloca(fst);	//free(fst); zhangbin, 2006-7-17
+		nel_list_dealloc(fst);	
+		//nel_dealloca(fst);
 	}
 
 	return symbol;
@@ -2315,8 +2302,7 @@ int __get_count_of(struct nel_LIST **plist)
 	struct nel_LIST *scan ;
 	int count =0;
 
-	for(scan = *plist; scan; scan =scan->next)
-	{
+	for(scan = *plist; scan; scan =scan->next) {
 		count++;
 	}
 
@@ -2671,11 +2657,9 @@ nel_symbol *nel_short_unsigned_symbol;
 nel_symbol *nel_unsigned_short_int_symbol;
 nel_symbol *nel_short_unsigned_int_symbol;
 nel_symbol *nel_void_symbol;
-//added by zhangbin, 2006-4-27
 nel_symbol *nel_signed_long_long_symbol;
 nel_symbol *nel_long_long_symbol;
 nel_symbol *nel_unsigned_long_long_symbol;
-//end add
 
 
 
@@ -2714,7 +2698,7 @@ void nel_type_init (struct nel_eng *eng)
 	nel_char_symbol = nel_static_symbol_alloc (eng, nel_insert_name(eng, "char"),
 					  type_type, (char *) nel_char_type, nel_C_TYPE, 0, nel_L_C, 0);
 
-	nel_complex_type = nel_type_alloc (eng, nel_D_COMPLEX, 2 * sizeof (double),	//modified by zhangbin, sizeof(float)=>sizeof(double)
+	nel_complex_type = nel_type_alloc (eng, nel_D_COMPLEX, 2 * sizeof (double),
 									   nel_alignment_of (float), 0, 0);
 	type_type = nel_type_alloc (eng, nel_D_TYPE_NAME, 0, 0, 0, 0, nel_complex_type);
 	nel_complex_symbol = nel_static_symbol_alloc (eng, nel_insert_name(eng, "complex"),
@@ -2761,7 +2745,6 @@ void nel_type_init (struct nel_eng *eng)
 					  type_type, (char *) nel_long_type, nel_C_TYPE, 0, nel_L_C, 0);
 
 
-	/* wyong, 2005.4.15 */  //modified by zhangbin, 2006-4-27
 	nel_long_long_type = nel_type_alloc (eng, nel_D_LONG_LONG, sizeof (long long),nel_alignment_of (long long ), 0, 0);
 	type_type = nel_type_alloc(eng, nel_D_TYPE_NAME, 0, 0, 0, 0, nel_long_long_type);
 	nel_long_long_symbol = nel_static_symbol_alloc(eng, nel_insert_name(eng, "long long int"), type_type, 
@@ -2779,7 +2762,6 @@ void nel_type_init (struct nel_eng *eng)
 	type_type = nel_type_alloc(eng, nel_D_TYPE_NAME, 0, 0, 0, 0, nel_unsigned_long_long_type);
 	nel_unsigned_long_long_symbol = nel_static_symbol_alloc(eng, nel_insert_name(eng, "long long unsigned int"), type_type, 
 														(char*)nel_unsigned_long_long_type, nel_C_TYPE, 0, nel_L_C, 0);
-	//end add, 2006-4-27
 
 	//type_type = nel_type_alloc (eng, nel_D_TYPE_NAME, 0, 0, 0, 0, nel_long_long_type);
 	//nel_long_long_symbol = nel_static_symbol_alloc (eng, nel_insert_name(eng, "long"),type_type, (char *) nel_long_type, nel_C_TYPE, 0, nel_L_C, 0);
@@ -3088,11 +3070,9 @@ void nel_insert_C_types (struct nel_eng *eng)
 	insert(eng, nel_unsigned_short_int_symbol);
 	insert(eng, nel_short_unsigned_int_symbol);
 	insert(eng, nel_void_symbol);
-	//added by zhangbin, 2006-4-26
 	insert(eng, nel_signed_long_long_symbol);
 	insert(eng, nel_long_long_symbol);
 	insert(eng, nel_unsigned_long_long_symbol);
-	//end
 
 	nel_debug ({ nel_trace (eng, "] exiting nel_insert_C_types\n\n"); });
 }
@@ -3147,11 +3127,9 @@ void nel_remove_C_types (struct nel_eng *eng)
 	nel_remove_symbol (eng, nel_short_unsigned_int_symbol);
 	nel_remove_symbol (eng, nel_void_symbol);
 
-//added by zhangbin
 	nel_remove_symbol(eng, nel_signed_long_long_symbol);
 	nel_remove_symbol(eng, nel_long_long_symbol);
 	nel_remove_symbol(eng, nel_unsigned_long_long_symbol);
-//end
 	nel_debug ({ nel_trace (eng, "] exiting nel_remove_C_types\n\n"); });
 }
 
@@ -3580,7 +3558,7 @@ unsigned_int nel_member_diff (register nel_member *member1, register nel_member 
 		if (member1->offset != member2->offset) {
 			return (1);
 		}
-		retval = retval |/*modified by zhangbin, 2006-5-17, '&'=>'|'*/ nel_type_diff (member1->symbol->type, member2->symbol->type, check_qual);
+		retval = retval | nel_type_diff (member1->symbol->type, member2->symbol->type, check_qual);
 		if (retval & 1) {
 			return (1);
 		}
@@ -3825,7 +3803,6 @@ unsigned_int nel_type_diff (register nel_type *type1, register nel_type *type2, 
 		{
 			struct nel_RHS *rhs1, *rhs2;
 			if( nel_symbol_diff(type1->prod.lhs, type2->prod.lhs)) {
-				/* bugfix, wyong, 2005.6.10 */
 				return 1;
 			}
 
@@ -3836,7 +3813,6 @@ unsigned_int nel_type_diff (register nel_type *type1, register nel_type *type2, 
 			}
 
 			if( rhs1 != NULL || rhs2 != NULL ) {
-				/*bugfix, wyong, 2006.6.15 */
 				return 1;
 			}
 
@@ -3962,10 +3938,7 @@ void emit_type (FILE *file, register nel_type *type/*, int indent*/)
 		//fprintf (file, "0x%x\n", type);
 		//tab (indent);
 
-#if 0
-		//wyong, 2004.6.12
-		fprintf (file, "%s", nel_TC_name (type->simple.type));
-#endif
+		//fprintf (file, "%s", nel_TC_name (type->simple.type));
 
 		//tab (indent);
 		//fprintf (file, "size: %d\n", type->simple.size);
@@ -4202,63 +4175,47 @@ int is_compatible_types(nel_type *type1, nel_type *type2)
 
 }
 
-//added by zhangbin, 2006-5-25
 int is_asgn_compatible(struct nel_eng *eng, nel_type *type1, nel_type *type2)
 {
-	if(!type1 || !type2)
-	{
+	if(!type1 || !type2) {
 		parser_stmt_error(eng, "NULL type");
 		return 0;
 	}
 
-	//added by zhangbin, 2006-5-31
 	if(type1==type2)
 		return 1;
-	//end
-#if 0	//zhangbin, 2006-9-27
-	//added by zhangbin, 2006-8-8
-	if(type1->simple.type == nel_D_STAB_UNDEF && type2->simple.type != nel_D_STAB_UNDEF)
-	{
+#if 0
+	if(type1->simple.type == nel_D_STAB_UNDEF && type2->simple.type != nel_D_STAB_UNDEF) {
 		*type1 = *type2;
 		return 1;
 	}
-	if(type2->simple.type == nel_D_STAB_UNDEF && type1->simple.type != nel_D_STAB_UNDEF)
-	{
+	if(type2->simple.type == nel_D_STAB_UNDEF && type1->simple.type != nel_D_STAB_UNDEF) {
 		*type2 = *type1;
 		return 1;
 	}
-	if(type2->simple.type == nel_D_STAB_UNDEF && type1->simple.type == nel_D_STAB_UNDEF)
-	{
+	if(type2->simple.type == nel_D_STAB_UNDEF && type1->simple.type == nel_D_STAB_UNDEF) {
 		return 0;
 	}
-	//end
 #endif
 	//all numerical type is asignment compatible
 	if(nel_numerical_D_token(type1->simple.type) && nel_numerical_D_token(type2->simple.type))
 		return 1;
 
-	if(type1->simple.type != type2->simple.type)
-	{
-		if(type1->simple.type == nel_D_POINTER && type2->simple.type == nel_D_ARRAY)
-		{
+	if(type1->simple.type != type2->simple.type) {
+		if(type1->simple.type == nel_D_POINTER && type2->simple.type == nel_D_ARRAY) {
 			if(nel_type_diff(type1->pointer.deref_type, type2->array.base_type, 1))
 				parser_warning(eng, "assign array to a incompatible pointer");
 			return 1;
 		}
-		//added by zhangbin, 2006-6-2
-		if(type1->simple.type == nel_D_POINTER && type2->simple.type == nel_D_FUNCTION)
-		{
+		if(type1->simple.type == nel_D_POINTER && type2->simple.type == nel_D_FUNCTION) {
 			if(nel_type_diff(type1->pointer.deref_type, type2, 1))
 				parser_stmt_error(eng, "incompatible function and function pointer");
 			return 1;
 		}
-		//end
 		return 0;
 	}
-	else
-	{
-		if(type1->simple.type == nel_D_POINTER)
-		{
+	else {
+		if(type1->simple.type == nel_D_POINTER) {
 			if(nel_type_diff(type1->pointer.deref_type, type2->pointer.deref_type, 1))
 				parser_warning(eng, "assignment between two incompatible pointer");
 			return 1;
@@ -4267,84 +4224,79 @@ int is_asgn_compatible(struct nel_eng *eng, nel_type *type1, nel_type *type2)
 	}
 }
 
-//added by zhangbin, 2006-7-19
 //calling nel_dealloca to free line chunks,
 //after doing this, all line pointer should be illegal
 void line_dealloc(struct nel_eng *eng)
 {
-	while(nel_line_chunks)
-	{
+	while(nel_line_chunks) {
 		nel_line_chunk *chunk = nel_line_chunks->next;
 		nel_dealloca(nel_line_chunks->start);
 		nel_dealloca(nel_line_chunks);
 		nel_line_chunks = chunk;
 	}
-	nel_lines_next = nel_lines_end = nel_free_lines = NULL;
+	nel_lines_next = NULL;
+	nel_lines_end = NULL;
+	nel_free_lines = NULL;
 }
-//end
 
-//added by zhangbin, 2006-7-19
 //calling nel_dealloca to free type chunks,
 //after doing this, all type pointer should be illegal
 void type_dealloc(struct nel_eng *eng)
 {
-	while(nel_type_chunks)
-	{
+	while(nel_type_chunks) {
 		nel_type_chunk *chunk = nel_type_chunks->next;
 		nel_dealloca(nel_type_chunks->start);
 		nel_dealloca(nel_type_chunks);
 		nel_type_chunks = chunk;
 	}
-	nel_types_next = nel_types_end = nel_free_types = NULL;
+	nel_types_next = NULL;
+	nel_types_end = NULL;
+	nel_free_types = NULL;
 }
-//end
 
-//added by zhangbin, 2006-7-19
 //calling nel_dealloca to free list chunks,
 //after doing this, all list pointer should be illegal
 void list_dealloc(struct nel_eng *eng)
 {
-	while(nel_list_chunks)
-	{
+	while(nel_list_chunks) {
 		nel_list_chunk *chunk = nel_list_chunks->next;
 		nel_dealloca(nel_list_chunks->start);
 		nel_dealloca(nel_list_chunks);
 		nel_list_chunks = chunk;
 	}
-	nel_lists_next = nel_lists_end = nel_free_lists = NULL;
+	nel_lists_next = NULL;
+	nel_lists_end = NULL;
+	nel_free_lists = NULL;
 }
-//end
 
 
-//added by zhangbin, 2006-7-19
 //calling nel_dealloca to free block chunks,
 //after doing this, all block pointer should be illegal
 void block_dealloc(struct nel_eng *eng)
 {
-	while(nel_block_chunks)
-	{
+	while(nel_block_chunks) {
 		nel_block_chunk *chunk = nel_block_chunks->next;
 		nel_dealloca(nel_block_chunks->start);
 		nel_dealloca(nel_block_chunks);
 		nel_block_chunks = chunk;
 	}
-	nel_blocks_next = nel_blocks_end = nel_free_blocks = NULL;
+	nel_blocks_next = NULL;
+	nel_blocks_end = NULL;
+	nel_free_blocks = NULL;
 }
-//end
 
 
-//added by zhangbin, 2006-7-19
 //calling nel_dealloca to free member chunks,
 //after doing this, all member pointer should be illegal
 void member_dealloc(struct nel_eng *eng)
 {
-	while(nel_member_chunks)
-	{
+	while(nel_member_chunks) {
 		nel_member_chunk *chunk = nel_member_chunks->next;
 		nel_dealloca(nel_member_chunks->start);
 		nel_dealloca(nel_member_chunks);
 		nel_member_chunks = chunk;
 	}
-	nel_members_next = nel_members_end = nel_free_members = NULL;
+	nel_members_next = NULL;
+	nel_members_end = NULL;
+	nel_free_members = NULL;
 }
-//end

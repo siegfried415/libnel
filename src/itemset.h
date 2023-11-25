@@ -2,8 +2,6 @@
 #define ITEMSET_H
 
 #include "item.h"
-//#include "sym.h"
-//typedef unsigned int StateId;
 
 // ---------------- struct itemset -------------------
 // a set of dotted productions, and the transitions between
@@ -42,7 +40,6 @@ struct itemset{
 	int terms;
 	int nonterms;
 
-	/* timeout value, wyong, 2004.11.27 */
 	int timeout;
 	int priority;
 
@@ -63,8 +60,8 @@ struct stateInfo {
 	int has_reduce;
 	int has_shift;
 	int priority;
-	int reduce; 	//wyong, 2006.3.2 
-	int dot_pos;	//wyong, 2006.9.25
+	int reduce; 
+	int dot_pos;	
 };
 
 

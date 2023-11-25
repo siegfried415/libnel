@@ -40,8 +40,7 @@ typedef struct nel_JMP_BUF
         union nel_STACK *semantic_stack_next;
         int level;
         int block_no;
-unsigned_int clean_flag :
-        1;
+	unsigned_int clean_flag : 1;
         char *dyn_values_next;
         struct nel_SYMBOL *dyn_symbols_next;
         union nel_STACK *context;

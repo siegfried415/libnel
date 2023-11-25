@@ -21,7 +21,6 @@
 //#define DEBUG 1
 //#define DEBUG_0531 1
 
-//#include "mem.h"
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
@@ -36,7 +35,6 @@
 #include <stdlib.h>
 #else
 extern char *calloc(), *malloc(), *realloc();
-//extern char *calloc(), *malloc();
 extern void free();
 #endif
 
@@ -50,7 +48,6 @@ extern void free();
 # include <locale.h>
 #endif
 
-//wyong, 20230801
 #include <regex.h>
 
 #ifndef DEBUG	/* use the same approach as regex.c */
@@ -99,7 +96,6 @@ extern void free();
    host does not conform to Posix.  */
 #define ISASCIIDIGIT(c) ((unsigned) (c) - '0' <= 9)
 
-//added by yanf, 2007.5.16
 
 /* If we (don't) have I18N.  */
 /* glibc defines _ */
@@ -114,10 +110,7 @@ extern void free();
 # endif
 #endif
 
-//#include "hashtab.h"
-//#include "match.h"
 #include "nlib/match/dfa.h"
-//#include "hard-locale.h"
 
 /* HPUX, define those as macros in sys/param.h */
 #ifdef setbit
@@ -127,14 +120,14 @@ extern void free();
 # undef clrbit
 #endif
 
-//wyong, 20090516
 //static void dfamust PARAMS ((struct dfa *dfa));
 static void regexp PARAMS ((int toplevel));
 
 void
 dfaerror (char const *mesg)
 {
-  error (2, 0, mesg);
+  //error (2, 0, mesg);
+  fprintf(stderr, "%s", mesg); 
 }
 
 
@@ -299,13 +292,12 @@ equal (charclass s1, charclass s2)
 /* A pointer to the current dfa is kept here during parsing. */
 //static struct dfa *dfa;
 
-//added by yanf, 2007.3.23
 //static struct anchor anc[100];
 //static int num = 0;
 
 /* Find the index of charclass s in dfa->charclasses, or allocate a new charclass. */
 static int
-charclass_index (struct dfa *dfa, charclass s)   //modified by yanf, 2007.3.13
+charclass_index (struct dfa *dfa, charclass s)  
 {
   int i;
 
@@ -465,7 +457,6 @@ lex (struct dfa *dfa)
 	main switch inside the backslash case.  On the minus side,
 	it means that just about every case begins with
 	"if (backslash) ...".  */
-	//for (i = 0; i < 2; ++i)  //modified by yanf, 2007.3.15
 	for (i = 0; i < 200; ++i)
 	{
 		FETCH(dfa, c, 0);
@@ -516,7 +507,7 @@ lex (struct dfa *dfa)
 			case '9':
 				if (backslash && !(dfa->syntax_bits & RE_NO_BK_REFS)) {
 #ifdef 	BACKREF_AS_RULEID	
-					/* save ruleid with backref,  wyong, 20090605*/
+					/* save ruleid with backref */
 					dfa->ruleid = c - '0';
 					for (;;) {
 						if (dfa->lexleft) {
@@ -539,25 +530,25 @@ lex (struct dfa *dfa)
 			case '`':
 				if (backslash && !(dfa->syntax_bits & RE_NO_GNU_OPS))
 				//return dfa->lasttok = BEGLINE;	/* FIXME: should be beginning of string */
-				return dfa->lasttok = 39;	//modified by yanf, 2007.5.29
+				return dfa->lasttok = 39;
 				goto normal_char;
 
 			case '\'':
 				if (backslash && !(dfa->syntax_bits & RE_NO_GNU_OPS))
 				//return dfa->lasttok = ENDLINE;	/* FIXME: should be end of string */
-						return dfa->lasttok = 39; //modified by yanf, 2007.5.29
+						return dfa->lasttok = 39;
 				goto normal_char;
 
 			case '<':
 				if (backslash && !(dfa->syntax_bits & RE_NO_GNU_OPS))
 				//return dfa->lasttok = BEGWORD;
-						return dfa->lasttok = 60; //modified by yanf, 2007.5.29
+						return dfa->lasttok = 60;
 				goto normal_char;
 
 			case '>':
 				if (backslash && !(dfa->syntax_bits & RE_NO_GNU_OPS))
 				//return dfa->lasttok = ENDWORD;
-						return dfa->lasttok = 62; //modified by yanf, 2007.5.29
+						return dfa->lasttok = 62;
 				goto normal_char;
 
 			case 'b':
@@ -684,7 +675,7 @@ lex (struct dfa *dfa)
 				dfa->laststart = 1;
 				return dfa->lasttok = OR;
 
-			/*   //modified by yanf, 2007.3.29
+			/*  
 			case '\n':
 				if (syntax_bits & RE_LIMITED_OPS
 				|| backslash
@@ -716,14 +707,13 @@ lex (struct dfa *dfa)
 				zeroset(ccl);
 				notset(ccl);
 				if (!(dfa->syntax_bits & RE_DOT_NEWLINE))
-					//clrbit(dfa->eolbyte, ccl);		//modified by yanf, 2007.4.25
+					//clrbit(dfa->eolbyte, ccl);
 				clrbit('\n', ccl);
 				if (dfa->syntax_bits & RE_DOT_NOT_NULL)
 					clrbit('\0', ccl);
 				dfa->laststart = 0;
 				return dfa->lasttok = CSET + charclass_index(dfa, ccl);
 
-			//added by yanf, 2007.3.29
 			case 'f':
 				if (!backslash || (dfa->syntax_bits & RE_NO_GNU_OPS))
 				goto normal_char;
@@ -750,7 +740,7 @@ lex (struct dfa *dfa)
 					return '\n';
 				//end
 
-			case 'd':   //added by yanf, 2007.3.28
+			case 'd':  
 			case 'D':
 				if (!backslash || (dfa->syntax_bits & RE_NO_GNU_OPS))
 				goto normal_char;
@@ -763,15 +753,15 @@ lex (struct dfa *dfa)
 				dfa->laststart = 0;
 				return dfa->lasttok = CSET + charclass_index(dfa, ccl);
 					
-			case 's':   //added by yanf, 2007.3.28
+			case 's': 
 			case 'S':
 				if (!backslash || (dfa->syntax_bits & RE_NO_GNU_OPS))
 				goto normal_char;
 				zeroset(ccl);
 				for (c2 = 9; c2 < 14; ++c2)
-				//if (IS_WORD_CONSTITUENT(c2))  //modified by yanf, 2007.5.11
+				//if (IS_WORD_CONSTITUENT(c2)) 
 				setbit(c2, ccl);
-					setbit(32, ccl);	//added by yanf, 2007.5.11
+					setbit(32, ccl);
 				if (c == 'S')
 				notset(ccl);
 				dfa->laststart = 0;
@@ -830,7 +820,6 @@ lex (struct dfa *dfa)
 					if (c == '\\' && (dfa->syntax_bits & RE_BACKSLASH_ESCAPE_IN_LISTS))
 					{
 						FETCH(dfa, c, _("Unbalanced ["));
-						//added by yanf, 2007.5.11
 						if (c == 'x')
 						{
 							int dec_num = 0;   //\xA9   dec_num = A9
@@ -871,7 +860,7 @@ lex (struct dfa *dfa)
 									setbit_case_fold (dfa, t1, ccl);
 							c = 'a';
 						}
-						else if (c == 'n')  //bug fixed by yanf, 2007.6.19
+						else if (c == 'n') 
 						{
 						  	c = 10;
 						}
@@ -900,7 +889,6 @@ lex (struct dfa *dfa)
 			  					&& (dfa->syntax_bits & RE_BACKSLASH_ESCAPE_IN_LISTS))
 							{
 								FETCH(dfa, c2, _("Unbalanced ["));
-								//added by yanf, 2007.5.11
 								if (c2 == 'x')
 								{
 									int dec_num = 0;   //\xA9   dec_num = A9
@@ -1043,7 +1031,6 @@ addtok (struct dfa *dfa, token t)
 
 #ifdef	BACKREF_AS_RULEID
     case BACKREF:
-        //wyong, 20090607
 	if(dfa->talloc > dfa->ralloc) {	
 		REALLOC(dfa->rules,  int, dfa->talloc);
 		while (dfa->ralloc < dfa->talloc) {
@@ -1378,7 +1365,7 @@ state_index (struct dfa *dfa, position_set const *s, int newline, int letter)
     }
 
   /* We'll have to create a new state. */
-  //printf("state_index start!\n"); //added by yanf, 2007.3.9
+  //printf("state_index start!\n");
   REALLOC_IF_NECESSARY(dfa->states, dfa_state, dfa->salloc, dfa->sindex);
 
   //add by miaocs, 20090518
@@ -1386,8 +1373,8 @@ state_index (struct dfa *dfa, position_set const *s, int newline, int letter)
 
   dfa->states[i].hash = hash;
   MALLOC(dfa->states[i].elems.elems, position, s->nelem);
-  //printf("MALLOC %d byte\n", s->nelem*sizeof(position));   //added by yanf, 2007.3.9
-  //printf("state_index end!\n"); //added by yanf, 2007.3.9
+  //printf("MALLOC %d byte\n", s->nelem*sizeof(position)); 
+  //printf("state_index end!\n");
   copy(s, &dfa->states[i].elems);
   dfa->states[i].newline = newline;
   dfa->states[i].letter = letter;
@@ -1745,7 +1732,6 @@ dfaanalyze (struct dfa *dfa, int searchflag)
   state_index(dfa, &merged, wants_newline, 0);
 
 #if 1
-  /* NOTE,NOTE,NOTE, wyong, 20090519 */
   free(o_nullable);
   free(o_nfirst);
   free(o_firstpos);
@@ -1819,7 +1805,7 @@ dfastate (struct dfa *dfa, int s, int trans[])
       for (i = 0; i < NOTCHAR; ++i)
 	if (IS_WORD_CONSTITUENT(i))
 	  setbit(i, dfa->letters);
-#if DEBUG_0531			//modified by yanf, 2007.5.31
+#if DEBUG_0531
       setbit(dfa->eolbyte, dfa->newline);
 #else
 			if (dfa->eolbyte != '\0')
@@ -1956,7 +1942,7 @@ dfastate (struct dfa *dfa, int s, int trans[])
 	state_letter = state;
       for (i = 0; i < NOTCHAR; ++i)
 	trans[i] = (IS_WORD_CONSTITUENT(i)) ? state_letter : state;
-#if DEBUG_0531 //modified by yanf, 2007.5.31
+#if DEBUG_0531
 			trans[dfa->eolbyte] = state_newline;
 #else
 			//if (dfa->eolbyte != '\0')
@@ -2023,7 +2009,7 @@ dfastate (struct dfa *dfa, int s, int trans[])
 	    {
 	      int c = j * INTBITS + k;
 
-#if DEBUG_0531		//modified by yanf, 2007.5.31
+#if DEBUG_0531
 	      if (c == dfa->eolbyte)
 					trans[c] = state_newline;
 	      else if (IS_WORD_CONSTITUENT(c))
@@ -2131,13 +2117,13 @@ if(dfa->lazy_flag > 0 )
       }
 
   /* Newline is a sentinel.  */
-#if DEBUG_0531 //modified by yanf, 2007.5.31
-  //trans[dfa->eolbyte] = -1;	//modified by yanf, 2007.4.25
+#if DEBUG_0531
+  //trans[dfa->eolbyte] = -1;
   trans['\0'] = -1;
 #else
 	if (dfa->eolbyte != '\0')
 	{
-		//trans[dfa->eolbyte] = -1;  //modified by yanf, 2007.6.5
+		//trans[dfa->eolbyte] = -1; 
 	}
 #endif
 
@@ -2187,7 +2173,7 @@ size_t
 dfaexec (struct dfa *dfa, char const *begin, size_t size, int *backref, int *state)
 {
   register int s;	/* Current state. */
-  register int itmp = 0;	//added by yanf, 2007.3.22
+  register int itmp = 0;
   register unsigned char const *p; /* Current input character. */
   register unsigned char const *end; /* One past the last input character.  */
   register int **trans, *t;	/* Copy of d->trans so it can be optimized
@@ -2205,7 +2191,6 @@ dfaexec (struct dfa *dfa, char const *begin, size_t size, int *backref, int *sta
     for (i = 0; i < NOTCHAR; ++i)
 	dfa->sbit[i] = (IS_WORD_CONSTITUENT(i)) ? 2 : 1;
 
-	//modified by yanf, 2007.5.31
 	if (eol != '\0')
 		dfa->sbit[eol] = 4;
   }
@@ -2218,7 +2203,7 @@ dfaexec (struct dfa *dfa, char const *begin, size_t size, int *backref, int *sta
     }
 #endif
 
-  s = *state;  //added by yanf, 2007.3.28
+  s = *state; 
   //printf("dfaexec: s = %d\n", s);
   p = (unsigned char const *) begin;
   end = p + size;
@@ -2251,12 +2236,10 @@ dfaexec (struct dfa *dfa, char const *begin, size_t size, int *backref, int *sta
 	  	if (dfa->success[s] & ((p>=end)?4:dfa->sbit[*p])) {
 #ifdef	BACKREF_AS_RULEID
 	      		if (backref) {
-				/* wyong, 20090607 */
-				*backref = (int) &dfa->states[s].backref;
+				*backref = (long) &dfa->states[s].backref;
 			}
 #else
-			//bugfix, wyong, 20090605 
-			match_rule(dfa, /*itmp */ s, p);	
+			match_rule(dfa, s, p);	
 #endif
 
 			*state = 0;  //clear states
@@ -2292,7 +2275,6 @@ dfainit (struct dfa *dfa)
   dfa->tindex = dfa->depth = dfa->nleaves = dfa->nregexps = 0;
 
 #ifdef	BACKREF_AS_RULEID
-  //wyong, 20090609 
   dfa->ralloc = dfa->talloc;
   MALLOC(dfa->rules, int, dfa->talloc);
   if (dfa->rules != NULL)
@@ -2308,18 +2290,16 @@ dfainit (struct dfa *dfa)
   dfa->tralloc = 0;
 
   //d->musts = 0;
-  dfa->musts = NULL; //modified by yanf, 2007.3.12
+  dfa->musts = NULL; 
 	
 	//printf("dfainit: dfa->retnum = %d\n", dfa->retnum);
 	dfa->rule_id = 0;
 	//dfa->retnum = 0;
 
-	//wyong, 20090516
 	//CALLOC(dfa->retsyms, int, dfa->retnum);
-
 	dfa->empty_string = "";
 
-  //dfa->offset_table = hash_alloc(1);		/* wyong, 20090519*/
+  //dfa->offset_table = hash_alloc(1);	
 
 #ifdef	DFA_LAZY
   dfa->lazy_flag = 0;
@@ -2351,7 +2331,6 @@ void dfacomp (struct dfa *dfa, char const *s, size_t len, int searchflag)
       dfaparse(dfa, lcopy, len);
       free(lcopy);
 
-      //NOTE,NOTE,NOTE,wyong, 20090516
       //dfamust(dfa);
 
       dfa->cindex = dfa->tindex = dfa->depth = dfa->nleaves = dfa->nregexps = 0;
@@ -2367,9 +2346,8 @@ void dfacomp (struct dfa *dfa, char const *s, size_t len, int searchflag)
     {
       dfainit(dfa);
       dfaparse(dfa, s, len);
-		  //NOTE,NOTE,NOTE, wyong, 20090516
-		   // dfamust(dfa);    //modified by yanf, 2007.3.12
-      dfaanalyze(dfa, searchflag);	//modified by yanf, 2007.3.12
+		   // dfamust(dfa);  
+      dfaanalyze(dfa, searchflag);
 #ifdef	DFA_LAZY
       if (dfa->lazy_flag == 0)
 #endif
@@ -2408,7 +2386,6 @@ dfafree (struct dfa *dfa)
   if (dfa->success) free((ptr_t) dfa->success);
 
 #if 0
-  /* NOTE,NOTE,NOTE, wyong, 20090517*/
   for (dm = dfa->musts; dm; dm = ndm)
     {
       ndm = dm->next;

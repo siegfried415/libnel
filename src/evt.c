@@ -9,6 +9,7 @@
 
 #include "engine.h"
 #include "errors.h"
+#include "parser.h" 
 #include "sym.h"
 #include "evt.h"
 #include "stmt.h"
@@ -116,7 +117,7 @@ nel_symbol *event_symbol_alloc(struct nel_eng *eng, char *name, union nel_TYPE *
 	/* can save a lot of memory usage */
 	/**********************************************************************/
 	
-	retval->aux.event = nel_event_alloc(eng);	//added by zhangbin, 2006-7-21
+	retval->aux.event = nel_event_alloc(eng);	
 	//nel_malloc(retval->aux.event, 1, struct nel_EVENT);
 	if(!retval->aux.event ){
 		event_symbol_dealloc(eng, retval);	
@@ -129,7 +130,7 @@ nel_symbol *event_symbol_alloc(struct nel_eng *eng, char *name, union nel_TYPE *
 	/**********************************************************************/
 	retval->_pid = retval->id;
 
-	retval->_parent = retval;	//bugfix, wyong, 2005.11.7 
+	retval->_parent = retval;
 	retval->_cyclic = 0;
 	retval->_flag = 0;
 	//retval->_nodelay = 0;
@@ -138,7 +139,7 @@ nel_symbol *event_symbol_alloc(struct nel_eng *eng, char *name, union nel_TYPE *
 	retval->_deep = 0;
 	retval->_state = -1;
 
-	retval->_isolate = isolate;	//wyong, 2006.3.9 
+	retval->_isolate = isolate;
 
 	retval->next = (nel_symbol *)0;
 	return (retval);	
@@ -184,11 +185,9 @@ void event_symbol_dealloc(struct nel_eng *eng, nel_symbol *symbol)
 	}
 
 	if(scan) {
-		//modifid by zhangbin, 2006-7-17, free=>nel_dealloca
 #if 1	
 		nel_event_dealloc(symbol->aux.event);
-		//nel_dealloca(symbol->aux.event);
-		nel_free(symbol);	//nel_dealloca(symbol); zhangbin, 2006-10-12
+		nel_free(symbol);	
 #else
 		free(symbol->aux.event);
 		free(symbol); 
@@ -239,7 +238,7 @@ nel_symbol *event_symbol_copy(struct nel_eng *eng, nel_symbol *symbol)
 
 }
 
-void emit_terminals(struct nel_eng *eng /*,FILE *fp */)
+void emit_terminals(struct nel_eng *eng )
 {
 	FILE *fp;
 	if(eng->term_debug_level) {
@@ -256,7 +255,7 @@ void emit_terminals(struct nel_eng *eng /*,FILE *fp */)
 	}
 }
 
-void emit_nonterminals(struct nel_eng *eng /*,FILE *fp */)
+void emit_nonterminals(struct nel_eng *eng )
 {
 	FILE *fp;
 	if(eng->nonterm_debug_level ) {
@@ -274,7 +273,6 @@ void emit_nonterminals(struct nel_eng *eng /*,FILE *fp */)
 
 }
 
-//added by zhangbin, 2006-7-21
 typedef struct nel_EVENT_CHUNK
 {
 	unsigned_int size;
@@ -293,15 +291,12 @@ struct nel_EVENT *nel_event_alloc(struct nel_eng *eng)
 {
 	struct nel_EVENT *retval;
 	nel_lock(&nel_events_lock);
-	if(nel_free_events)
-	{
+	if(nel_free_events) {
 		retval = nel_free_events;
 		nel_free_events = nel_free_events->next;
 	}
-	else
-	{
-		if(nel_events_next >= nel_events_end)
-		{
+	else {
+		if(nel_events_next >= nel_events_end) {
 			nel_event_chunk *chunk;
 			nel_malloc ( nel_events_next, nel_events_max, nel_event );
 			nel_events_end = nel_events_next + nel_events_max;
@@ -327,13 +322,14 @@ void nel_event_dealloc(struct nel_EVENT *evt)
 
 void event_dealloc(struct nel_eng *eng)
 {
-	while(nel_event_chunks)
-	{
+	while(nel_event_chunks) {
 		nel_event_chunk *chunk = nel_event_chunks->next;
 		nel_dealloca(nel_event_chunks->start); 
 		nel_dealloca(nel_event_chunks); 
 		nel_event_chunks = chunk;
 	}
-	nel_events_next = nel_events_end = nel_free_events = NULL;
+
+	nel_events_next = NULL;
+	nel_events_end = NULL;
+	nel_free_events = NULL;
 }
-//end

@@ -2,7 +2,6 @@
 #ifndef ITEM_H
 #define ITEM_H
 
-//#include "type.h"
 #include "termset.h"
 #include "dprod.h"
 

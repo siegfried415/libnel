@@ -5,7 +5,6 @@
 
 #include "engine.h"
 #include "parser.h"
-
 #include "errors.h"
 #include "type.h"
 #include "err.h"
@@ -44,8 +43,6 @@ unsigned_int nel_static_global_equivs = 1;
 /*************************************************************************/
 unsigned_int nel_static_local_equivs = 1;
 
-//added by zhangbin, 2006-5-16
-//to support struct var init
 int nel_s_u_init(struct nel_eng *eng, nel_symbol *sym1, nel_expr *expr2)
 {
 	if(!sym1 || !expr2 || !sym1->type || nel_type_incomplete(sym1->type) || expr2->gen.opcode != nel_O_LIST)
@@ -69,17 +66,15 @@ int nel_s_u_init(struct nel_eng *eng, nel_symbol *sym1, nel_expr *expr2)
 			temp_symbol = parser_dyn_symbol_alloc(eng, NULL, temp_member->symbol->type, 
 													(char*)(sym1->value)+size, sym1->class, 1, sym1->source_lang, eng->parser->level);
 
-			//added by zhangbin, 2006-5-24, to support bit field initialize
-			if(temp_member->bit_field)
-			{
+			//bit field initialize
+			if(temp_member->bit_field) {
 				nel_symbol *expr_result;
 				unsigned_int word;
 				expr_result = intp_eval_expr_2(eng, temp_expr_list->expr);
 				intp_coerce (eng, nel_unsigned_int_type, (char *) (&word), expr_result->type, expr_result->value);
 				intp_insert_bit_field(eng, temp_member->symbol->type, sym1->value+size, word, temp_member->bit_lb, temp_member->bit_size);
 			}
-			else//end
-			{
+			else {
 				nel_global_init(eng, temp_symbol, temp_expr_list->expr);
 			}
 			temp_member = temp_member->next;
@@ -134,17 +129,10 @@ int nel_array_elms_init(struct nel_eng *eng, nel_symbol *sym, nel_expr_list *exp
 	for( scan=expr_list; scan != NULL; scan = scan->next){
 		expr = scan->expr;
 		if(size >= sym->type->simple.size) {
-
-
-#if 1
-			//added by zhangbin, 2006-6-23
-			if(!sym->type->array.val_len)
-			{
+			if(!sym->type->array.val_len) {
 				parser_stmt_error(eng, "init list too long");
 				return -1;
 			}
-			//end
-#endif
 
 			char *value;
 			sym->type->simple.size += base_type->simple.size;
@@ -179,14 +167,10 @@ int nel_array_elms_init(struct nel_eng *eng, nel_symbol *sym, nel_expr_list *exp
 
 int nel_array_init(struct nel_eng *eng, nel_symbol *sym1, nel_expr *expr2)
 {
-	//union nel_EXPR *expr1;
 	register nel_symbol *sym2;
 	int size = 0;
-
-	//add by zhangbin, 2006-5-23
 	nel_type *base_type;
 	base_type = sym1->type->array.base_type;
-	//end
 	
 	if(expr2 == NULL){
 		parser_error(eng, "nel_array_init #1) NULL expr");
@@ -203,42 +187,35 @@ int nel_array_init(struct nel_eng *eng, nel_symbol *sym1, nel_expr *expr2)
 		/* just an string, simple copy expr to sym */
 		sym2 = expr2->symbol.symbol;
 		
-		//added by zhangbin, 2006-5-23
 		switch(base_type->simple.type)
 		{
 		case nel_D_CHAR:
 		case nel_D_SIGNED_CHAR:
-		case nel_D_UNSIGNED_CHAR:	//end, 2006-5-23
-			//added by zhangbin, 2006-6-23
-			if(!sym1->type->array.val_len && sym1->type->array.size<sym2->type->array.size)
-			{
+		case nel_D_UNSIGNED_CHAR:
+			if(!sym1->type->array.val_len && sym1->type->array.size<sym2->type->array.size) {
 				parser_stmt_error(eng, "init string too long");
 				return -1;
 			}
-			//end
-			/*NOTE,NOTE,NOTE, don't forget to free the old value */
-			//sym1->value = nel_static_value_alloc(eng, sym2->type->simple.size + 1, sym2->type->simple.alignment);
-			if(sym1->_global) {	//bugfix, 2006.4.18
-				sym1->_global->value =  sym1->value;	//wyong, 2006.3.14
+
+			if(sym1->_global) {
+				sym1->_global->value =  sym1->value;
 			}
 
-			//added by zhangbin, 2006-6-27
 			if(sym1->type->simple.size<sym2->type->simple.size)
 			{
 				sym1->value = nel_static_value_alloc(eng, sym2->type->simple.size, nel_alignment_of(char));
 			}
-			//end
-			size = sym1->type->simple.size = sym2->type->simple.size /* + 1bugfix, wyong, 2006.4.30  */ ;
+			size = sym1->type->simple.size = sym2->type->simple.size ;
 			nel_copy(size, (char *)sym1->value, (char *)sym2->value);
 			break;
-		//added by zhangbin, 2006-5-23
+
 		default:
 			parser_stmt_error(eng, "array of inappropriate type initialized from string constant");
-		//end
+
 		}
 		break;
 	default:	
-		parser_stmt_error(eng, "nel_array_init #2) NULL opcode!");	//modified by zhangbin, 2006-5-23
+		parser_stmt_error(eng, "nel_array_init #2) NULL opcode!");
 		break;
 
 	}
@@ -264,7 +241,6 @@ int nel_global_init(struct nel_eng *eng, nel_symbol *sym1, nel_expr *expr2)
 		switch(type1->simple.type){
 		case nel_D_STRUCT:
 		case nel_D_UNION:
-			//added by zhangbin, 2006-5-16
 			size = nel_s_u_init(eng, sym1, expr2);
 			break;
 		case nel_D_ARRAY :
@@ -274,27 +250,22 @@ int nel_global_init(struct nel_eng *eng, nel_symbol *sym1, nel_expr *expr2)
 		default:
 			expr1 = nel_expr_alloc (eng, nel_O_SYMBOL, sym1);
 			expr = nel_expr_alloc(eng, nel_O_ASGN, expr1, expr2); 
-			//added by zhangbin, 2006-6-28
 			t1 = sym1->type;
 			t2 = eval_expr_type(eng, expr2);
-			if(!t2)
-			{
+			if(!t2) {
 				parser_stmt_error(eng, "illegal expr");
 				return -1;
 			}
-			if(!is_asgn_compatible(eng, t1, t2))
-			{
+			if(!is_asgn_compatible(eng, t1, t2)) {
 				parser_stmt_error(eng, "illegal expr: assignment incompatible");
 				return -1;
 			}
-			//end
 			intp_eval_expr_2(eng, expr);
 			size = sym1->type->simple.size;
 			break;
 		}
 	}
 
-	/* wyong, 2006.4.30 */
 	sym1->initialized = 1;
 	return (size);
 
@@ -307,28 +278,18 @@ int nel_dec_init(struct nel_eng *eng, nel_symbol *sym, nel_expr *expr)
 	int stor_class;
 	int retval = 0;
 	
-	//commited by zhangbin, 2006-5-24
-	//stor_class = nel_static_C_token(sym->class);
-	//end
-	
 	/******************************************************/
 	/* for global (or file local) data objects, call      */
 	/* nel_global_init() to initialize the symbol, */
 	/******************************************************/
 	if (eng->parser->level == 0) {
 		/**********************************************/
-		/* NOTE,NOTE,NOTE, wyong, 2005.10.09 */
 		/* don't resolve type if it 's an array.      */	 
 		/**********************************************/
 		//if(type->simple.type != nel_D_ARRAY){
 		//	type = parser_resolve_type (eng, type, name);
 		//}
 
-		//nel_debug ({
-		//if (type == NULL) {
-		//	parser_fatal_error (eng, "(nel_dec #8): NULL resolved type");
-		//}
-		//});
 
 		switch (sym->class) {
 #if 0
@@ -351,13 +312,10 @@ int nel_dec_init(struct nel_eng *eng, nel_symbol *sym, nel_expr *expr)
 		case nel_C_GLOBAL:
 		case nel_C_STATIC_GLOBAL:
 		case nel_C_NULL:
-			//added by zhangbin, 2006-5-25
-			if(expr_contain_funcall(eng, expr))
-			{
+			if(expr_contain_funcall(eng, expr)) {
 				parser_stmt_error(eng, "cannot inititialize a global variable by function calling");
-				retval = NULL;
+				retval = 0;	
 			}
-			//end
 			retval = nel_global_init(eng, sym, expr);
 			break;
 		default:
@@ -384,8 +342,7 @@ int nel_dec_init(struct nel_eng *eng, nel_symbol *sym, nel_expr *expr)
 		case nel_C_LOCAL:
 		case nel_C_REGISTER_LOCAL:
 		case nel_C_NULL:
-			/* create ASGN stmt and insert it into eng->parser->
-			stmts list, wyong, 2006.4.18  */
+			/* create ASGN stmt and insert it into eng->parser->stmts list */
 			{
 				register nel_expr *expr1;		
 				register nel_stmt *stmt;
@@ -397,8 +354,7 @@ int nel_dec_init(struct nel_eng *eng, nel_symbol *sym, nel_expr *expr)
 					if((eng->parser->unit_prefix != NULL) 
 					&& (*(eng->parser->unit_prefix)!='\0')){
 						/*********************************************/
-						/* create/find a global variable by the
-	name */
+						/* create/find a global variable by the name */
 						/* <filename>`<var_name>, where filename     */
 						/* has _`s substituted in for illegal chars. */
 						/*********************************************/
@@ -411,19 +367,17 @@ int nel_dec_init(struct nel_eng *eng, nel_symbol *sym, nel_expr *expr)
 	
 					/*type = nel_type_alloc(eng, nel_D_ARRAY, 0, type->simple.alignment, 1, 0, type->array.base_type, nel_int_type, type->array.known_lb, (type->array.known_lb) ? type->array.lb.value : type->array.lb.expr, type->array.known_ub, (type->array.known_ub) ? type->array.ub.value : type->array.ub.expr);*/
 					type->simple.traversed = 1;
-					if((global = nel_global_def (eng, global_name,  type , 0, nel_static_value_alloc(eng, type->simple.size, type->simple.alignment)/*NULL(zhangbin, 2006-5-23)*/, 0))){
+					if((global = nel_global_def (eng, global_name,  type , 0, nel_static_value_alloc(eng, type->simple.size, type->simple.alignment), 0))){
 						nel_global_init(eng, global, expr);
 					}
-					//modified by zhangbin, 2006-6-22
-					if(eng->compile_level==2)
-					{
+					if(eng->compile_level==2) {
 						expr1 = nel_expr_alloc(eng, nel_O_SYMBOL, sym);
 						expr1 = nel_expr_alloc(eng, nel_O_ASGN, expr1, expr); 
 						stmt = nel_stmt_alloc (eng, nel_S_EXPR, eng->parser->filename, eng->parser->line, expr1, NULL);
 						append_stmt (stmt, &(stmt->expr.next));
 						break;
 					}
-					else	//end, 2006-6-22
+					else
 						expr = nel_expr_alloc(eng, nel_O_SYMBOL, global);
 				}
 				expr1 = nel_expr_alloc(eng, nel_O_SYMBOL, sym);
@@ -434,7 +388,7 @@ int nel_dec_init(struct nel_eng *eng, nel_symbol *sym, nel_expr *expr)
 			break;
 
 		case nel_C_STATIC_LOCAL:
-			if(sym->_global)	/* bugfix, wyong, 2006.4.18 */
+			if(sym->_global)
 				retval = nel_global_init (eng, sym->_global, expr);
 			break;
 
@@ -486,7 +440,7 @@ nel_symbol *nel_global_def (struct nel_eng *eng, register char *name, register n
 	/* static globals, then check the static ident hash  */
 	/* table for external (regular) globals.             */
 	/*****************************************************/
-	/* wyong, 2006.6.29 
+	/* 
 	old_sym = lookup_event_symbol(eng, name);	
 	if(old_sym != NULL ){
 		parser_stmt_error(eng, "%s has declaration as %s ignored",name, 
@@ -514,7 +468,6 @@ nel_symbol *nel_global_def (struct nel_eng *eng, register char *name, register n
 			/* make sure that the old symbol */
 			/* has the same type and value.  */
 			/*********************************/
-			/*NOTE,NOTE,NOTE, uncommeted by wyong, 2005.10.05 */
 			if ( (nel_type_diff (old_sym->type, type, 1) == 1) ||
 				((old_sym->value != NULL) && (old_sym->value != address)) ) {
 				parser_stmt_error (eng, "redeclaration of %s", name);
@@ -565,15 +518,9 @@ nel_symbol *nel_global_def (struct nel_eng *eng, register char *name, register n
 						old_sym->_global = nel_global_def (eng, global_name, type, 0, address, 0);
 					}
 				}else {
-					//wyong, 2006.4.28 
-					//parser_warning (eng, "redeclaration of %s ignored", name);
-                    
-					//added by zhangbin, 2006-5-29
-    				if(nel_compiled_C_token(old_sym->class) || nel_C_token(old_sym->class))
-                    {
-                        old_sym->type = type;
-                    }
-                    //end
+					if(nel_compiled_C_token(old_sym->class) || nel_C_token(old_sym->class)) {
+						old_sym->type = type;
+					}
 
 				}
 
@@ -598,9 +545,9 @@ nel_symbol *nel_global_def (struct nel_eng *eng, register char *name, register n
 				/* static ident hash table.                         */
 				/****************************************************/
 				retval = nel_static_symbol_alloc (eng, name, type, address,
-												  ((type->simple.type != nel_D_FUNCTION) ? nel_C_GLOBAL :
-												   (compiled ? nel_C_COMPILED_FUNCTION : nel_C_NEL_FUNCTION)),
-												  nel_lhs_type (type), nel_L_NEL, 0);
+						((type->simple.type != nel_D_FUNCTION) ? nel_C_GLOBAL :
+						(compiled ? nel_C_COMPILED_FUNCTION : nel_C_NEL_FUNCTION)),
+						nel_lhs_type (type), nel_L_NEL, 0);
 				retval->declared = 1;
 				parser_insert_ident (eng, retval);
 			}
@@ -645,7 +592,6 @@ nel_symbol *nel_global_def (struct nel_eng *eng, register char *name, register n
 					parser_warning (eng, "static declaration of %s ignored", name);
 				} else if (nel_static_global_equivs && (eng->parser->unit_prefix != NULL) && (*(eng->parser->unit_prefix) != '\0')) {
 
-					//wyong, 2006.4.28 
 					parser_warning (eng, "redeclaration of %s ignored", name);
 					/*****************************************************/
 					/* since this is a static global symbol,             */
@@ -699,9 +645,9 @@ nel_symbol *nel_global_def (struct nel_eng *eng, register char *name, register n
 				/* in the dynamic ident hash table.               */
 				/**************************************************/
 				retval = nel_static_symbol_alloc (eng, name, type, address,
-												  ((type->simple.type != nel_D_FUNCTION) ? nel_C_STATIC_GLOBAL :
-												   (compiled ? nel_C_COMPILED_STATIC_FUNCTION : nel_C_NEL_STATIC_FUNCTION)),
-												  nel_lhs_type (type), nel_L_NEL, 0);
+					  ((type->simple.type != nel_D_FUNCTION) ? nel_C_STATIC_GLOBAL :
+					   (compiled ? nel_C_COMPILED_STATIC_FUNCTION : nel_C_NEL_STATIC_FUNCTION)),
+					  nel_lhs_type (type), nel_L_NEL, 0);
 				retval->declared = 1;
 				retval->_global = global_symbol;
 				parser_insert_ident (eng, retval);
@@ -748,7 +694,7 @@ nel_symbol *nel_global_dec (struct nel_eng *eng, register char *name, register n
 	/* static globals, then check the static ident hash  */
 	/* table for external (regular) globals.             */
 	/*****************************************************/
-	/* wyong, 2006.6.29 
+	/* 
 	old_sym = lookup_event_symbol(eng, name);	
 	if(old_sym != NULL ){
 		parser_stmt_error(eng, "%s has declaration as %s ignored",name, 
@@ -807,7 +753,6 @@ nel_symbol *nel_global_dec (struct nel_eng *eng, register char *name, register n
 						/********************************************/
 					}
 				}else {
-					//wyong, 2006.4.28 
 					parser_warning (eng, "redeclaration of %s ignored", name);
 				}
 
@@ -869,7 +814,6 @@ nel_symbol *nel_global_dec (struct nel_eng *eng, register char *name, register n
 				parser_error (eng, "void type for %s", name);
 			} else if (nel_type_incomplete (type)) {
 				//parser_error (eng, "incomplete type for %s", name);
-				/* NOTE,NOTE,NOTE, wyong, 2005.10.09 */
 				retval = nel_static_symbol_alloc (eng, name,type,  NULL, nel_C_GLOBAL, nel_lhs_type (type), nel_L_NEL, 0);
 
 				retval->declared = 1;
@@ -903,7 +847,6 @@ nel_symbol *nel_global_dec (struct nel_eng *eng, register char *name, register n
 					parser_warning (eng, "static declaration of %s ignored", name);
 				} else if (nel_static_global_equivs && (eng->parser->unit_prefix != NULL) && (*(eng->parser->unit_prefix) != '\0')) {
 
-					//wyong, 2006.4.28 
 					parser_warning(eng, "redeclaration of %s ignored", name);
 
 					/*****************************************************/
@@ -1165,10 +1108,9 @@ nel_symbol *nel_local_dec(struct nel_eng *eng, register char *name, register nel
 					/* though the symbol could soon be out of scope forever */
 					/* (after an unnamed prog unit is evaluated).           */
 					/********************************************************/
-					//added by zhangbin, 2006-5-24
 					parser_warning(eng, "declare %s as auto", name);
 					return nel_local_dec(eng, name, type, 0);
-					//end
+
 					retval = nel_static_symbol_alloc (eng, name, type, nel_static_value_alloc (eng, type->simple.size, type->simple.alignment), nel_C_STATIC_LOCAL, nel_lhs_type (type), nel_L_NEL, eng->parser->level);
 					retval->declared = 1;
 					parser_insert_ident (eng, retval);
@@ -1263,9 +1205,6 @@ nel_symbol *nel_func_dec (struct nel_eng *eng, register char *name, register nel
 				/* the old symbol becomes the return value. */
 				/********************************************/
 				retval = old_sym;
-				//added by zhangbin, 2006-7-28
-				//retval->type = type;
-				//end
 			}
 		} else {
 			/*******************************************************/
@@ -1356,11 +1295,12 @@ nel_symbol *nel_func_dec (struct nel_eng *eng, register char *name, register nel
 		}
 	}
 
-	/*wyong, 20230803 
-	//the declared function will be an c static compiled function,
-	//a dynamic glibc function, or nel function. they are in the same 
-	//name space, it means you can't declare a nel function that exist
-	//in glibc or static c library. wyong, 2006.3.14  
+	/* 
+	the declared function will be an c static compiled function,
+	a dynamic glibc function, or nel function. they are in the same 
+	name space, it means you can't declare a nel function that exist
+	in glibc or static c library.
+
 	if(retval->value == NULL) {
 		retval->value = dlsym(NULL,  retval->name);
 		if(retval->value) {
@@ -1389,7 +1329,7 @@ nel_symbol *nel_evt_dec(struct nel_eng *eng, char *name, nel_type *type, unsigne
 	register nel_member *first;
 	unsigned int _volatile;
 	
-	if( type == NULL 	/*wyong, 2006.6.1 */
+	if( type == NULL 
 		|| ( type->simple.type != nel_D_VOID 
 		     && type->simple.type != nel_D_POINTER )) {
 		parser_fatal_error(eng, "the type of event %s must be void or pointer", name);
@@ -1412,7 +1352,7 @@ nel_symbol *nel_evt_dec(struct nel_eng *eng, char *name, nel_type *type, unsigne
 			}
 		}
 
-		/* correctly get _volatile,  bugfix, wyong, 2006.6.6 */
+		/* correctly get _volatile */
 		_volatile = type1->simple._volatile;	
 
 	}else if ( type->simple.type == nel_D_VOID ) {
@@ -1420,7 +1360,7 @@ nel_symbol *nel_evt_dec(struct nel_eng *eng, char *name, nel_type *type, unsigne
 	}
 
 	if ((old_sym = lookup_event_symbol(eng, name ))) {
-		if ( old_sym->class != class /* bugfix, wyong, 2006.4.11 */ 
+		if ( old_sym->class != class 
 			|| nel_type_diff (old_sym->type->event.descriptor, type, 0)) {
 			parser_error (eng, "redeclaration of %s", name);
 		}else {
@@ -1439,9 +1379,8 @@ nel_symbol *nel_evt_dec(struct nel_eng *eng, char *name, nel_type *type, unsigne
 		register nel_type * val_type;
 		register nel_symbol *val;
 		eng->startSymbol = retval ;
-		eng->startSymbol->_reachable = 1; 	/*bugfix, wyong, 2006.5.15 */
+		eng->startSymbol->_reachable = 1; 
 
-		/* wyong, 2006.6.1 */
 		val = nel_static_symbol_alloc(eng, nel_insert_name(eng,"$0"), type, NULL, nel_C_FORMAL, nel_lhs_type(type), nel_L_NEL, 0);
 
 
@@ -1452,7 +1391,7 @@ nel_symbol *nel_evt_dec(struct nel_eng *eng, char *name, nel_type *type, unsigne
 		/* can save a lot of memory usage */
 		/**********************************************************************/
 		
-		val->aux.event = nel_event_alloc(eng);	//added by zhangbin, 2006-7-21
+		val->aux.event = nel_event_alloc(eng);	
 		//nel_malloc(val->aux.event, 1, struct nel_EVENT);
 		
 		/*
@@ -1469,7 +1408,7 @@ nel_symbol *nel_evt_dec(struct nel_eng *eng, char *name, nel_type *type, unsigne
 		/**********************************************************************/
 		val->_pid = val->id;
 
-		val->_parent = val;	//bugfix, wyong, 2005.11.7 
+		val->_parent = val;	
 		val->_cyclic = 0;
 		val->_flag = 0;
 		//val->_nodelay = 0;
@@ -1478,14 +1417,14 @@ nel_symbol *nel_evt_dec(struct nel_eng *eng, char *name, nel_type *type, unsigne
 		val->_deep = 0;
 		val->_state = -1;
 
-		val->_isolate = retval ->_isolate;	//wyong, 2006.3.9 
+		val->_isolate = retval ->_isolate;	
 
 		/**********************************************************************/
 		/* push the retval to semantic stack, so this variable can be seen */
-		/* within expr or stmt , wyong, 2006.3.11  */
+		/* within expr or stmt 					  	*/
 		/**********************************************************************/
 		parser_insert_ident (eng, val);
-		retval->data = val;
+		retval->data = (char *)val;
 	}
 
 
@@ -1510,7 +1449,7 @@ nel_symbol *nel_dec (struct nel_eng *eng, register char *name, register nel_type
 	}
 
 	if (name[0] == '$') {		
-		/*can't declare an variable or event as $x, wyong,2006.4.27*/
+		/*can't declare an variable or event as $x */
 		if (stor_class == nel_T_ATOM || stor_class == nel_T_EVENT){
 			parser_fatal_error (eng, "event name can't start with $");
 		}else {
@@ -1518,7 +1457,7 @@ nel_symbol *nel_dec (struct nel_eng *eng, register char *name, register nel_type
 		}
 	}
 	else if (name[0] == '_') {		
-		/*can't declare an variable or event as _xxx, wyong,2006.6.15*/
+		/*can't declare an variable or event as _xxx */
 		if (stor_class == nel_T_ATOM || stor_class == nel_T_EVENT){
 			parser_fatal_error (eng, "event name can't start with _");
 		}else {
@@ -1623,7 +1562,6 @@ nel_symbol *nel_dec (struct nel_eng *eng, register char *name, register nel_type
 	/******************************************************/
 	else if (eng->parser->level == 0) {
 		/**********************************************/
-		/* NOTE,NOTE,NOTE, wyong, 2005.10.09 */
 		/* don't resolve type if it 's an array.      */	 
 		/**********************************************/
 		//if(type->simple.type != nel_D_ARRAY){
@@ -1681,8 +1619,7 @@ nel_symbol *nel_dec (struct nel_eng *eng, register char *name, register nel_type
 		case nel_T_REGISTER:
 		case nel_T_NULL:
 
-			/*NOTE, NOTE, NOTE, need check if the following resolve
-			is OK,  wyong, 2004.10.11 */
+			/*NOTE, NOTE, NOTE, need check if the following resolve is OK   */
 			type = parser_resolve_type (eng, type, name);
 			symbol = nel_local_dec (eng, name, type, 0);
 			break;
@@ -1704,7 +1641,6 @@ nel_symbol *nel_dec (struct nel_eng *eng, register char *name, register nel_type
 			append_stmt (stmt, &(stmt->dec.next));
 		}
 
-		/*wyong, 2004.11.10 */
 		retval = symbol;
 
 	}

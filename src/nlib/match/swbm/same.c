@@ -1,13 +1,7 @@
-/*
- * swbm_same.c
- * $Id: swbm_same.c,v 1.2 2006/03/17 05:50:16 wyong Exp $
- */
-
 #include <stdio.h>
 #include <stdlib.h>
 
 #include "nlib/match/swbm.h"
-
 #include "ptn.h"
 #include "same.h"
 #include "merge.h"
@@ -36,7 +30,7 @@ struct max_item *new_max_item(int same, int idx)
 	struct max_item *mi;
 	mi = (struct max_item *)calloc(1, sizeof(struct max_item));
 	if (mi == NULL) {
-		nel_error(NULL, "calloc error \n");
+		fprintf(stderr, "calloc error \n");
 		return NULL;
 	}
 	mi->same = same;
@@ -50,7 +44,7 @@ struct max_item **new_max_item_list(int count)
 	int i;
 	milist = (struct max_item **)calloc(count, sizeof(struct max_item *));
 	if (milist == NULL) {
-		nel_error(NULL, "calloc error \n");
+		fprintf(stderr, "calloc error \n");
 		return NULL;
 	}
 		
@@ -70,7 +64,7 @@ struct same_bit *new_same_bit(int rcutflag, int icutnum, int jcutnum, int same, 
 	struct same_bit *sb;
 	sb = (struct same_bit *)calloc(1, sizeof(struct same_bit));
 	if (sb == NULL) {
-		nel_error(NULL, "calloc error \n");
+		fprintf(stderr, "calloc error \n");
 		return NULL;
 	}
 	sb->rcutflag = rcutflag;
@@ -116,13 +110,13 @@ struct same_bit ***new_same_bit_map(int count)
 	int i;
 	sbmap = (struct same_bit ***)calloc(count, sizeof(struct same_bit **));
 	if (sbmap == NULL) {
-		nel_error(NULL, "calloc error \n");
+		fprintf(stderr, "calloc error \n");
 		return NULL;
 	}
 	for (i=0; i<count; i++) {
 		sbmap[i] = (struct same_bit **)calloc(count, sizeof(struct same_bit *));
 		if (sbmap[i] == NULL) {
-			nel_error(NULL, "calloc error \n");
+			fprintf(stderr, "calloc error \n");
 			free_same_bit_map(sbmap, count);
 			return NULL;
 		}

@@ -26,7 +26,6 @@
 #ifndef	DFA_H
 #define DFA_H
 
-/* wyong, 20090515 */
 #include <regex.h>
 
 #ifdef __STDC__
@@ -66,7 +65,6 @@
 /* Number of ints required to hold a bit for every character. */
 #define CHARCLASS_INTS ((NOTCHAR + INTBITS - 1) / INTBITS)
 
-//added by yanf, 2007.4.5
 #define MAX_PATTERN_SIZE 65535*2
 #define MAX_PATTERN_NUM 1000
 
@@ -218,7 +216,6 @@ typedef enum
 #define NOTLIMWORD_CONSTRAINT 0xf9
 
 
-//wyong, 20230801
 /* If this bit is not set, then \ inside a bracket expression is literal.
    If set, then such a \ quotes the following character.  */
 #define RE_BACKSLASH_ESCAPE_IN_LISTS ((unsigned long int) 1)
@@ -375,7 +372,7 @@ typedef struct
   char newline;			/* True if previous state matched newline. */
   char letter;			/* True if previous state matched a letter. */
 #ifdef	BACKREF_AS_RULEID
-  position_set backref;		/* int rindex,  wyong, 20090607 */
+  position_set backref;		/* int rindex */
 #else
   char backref;			/* True if this state matches a \<digit>. */
 #endif
@@ -405,7 +402,6 @@ struct dfamust
 };
 #endif
 
-//added by yanf, 2007.3.23
 struct anchor
 {
 	int p;
@@ -519,15 +515,15 @@ struct dfa
 	//must must0;
 	char *empty_string;
 
-	void *ext_data;	   /* wyong, 20090516 */
+	void *ext_data;	
 	//int end_flag;
 
 #ifdef	BACKREF_AS_RULEID
-	int *rules;		/* save ruleid for every token, wyong, 20090605 */
-	int ruleid;		/* hold temporary value of rindex, wyong, 20090605 */
-	int ralloc;		/* wyong, 20090607 */
+	int *rules;		/* save ruleid for every token */
+	int ruleid;		/* hold temporary value of rindex */
+	int ralloc;
 #else
-	struct hashtab *offset_table;	/* wyong, 20090519 */
+	struct hashtab *offset_table;
 #endif
 
 #ifdef	DFA_LAZY
@@ -536,7 +532,7 @@ struct dfa
 
 };
 
-void	(*dfa_callout)(struct dfa*, int l);	//wyong, 20090516
+void	(*dfa_callout)(struct dfa*, int l);
 
 /* Some macros for user access to dfa internals. */
 /* ACCEPTING returns true if s could possibly be an accepting state of r. */
@@ -556,5 +552,14 @@ void	(*dfa_callout)(struct dfa*, int l);	//wyong, 20090516
 /* Entry points. */
 
 //end
+
+size_t dfaexec (struct dfa *dfa, char const *begin, size_t size, int *backref, int *state);
+#ifdef DFA_LAZY
+void dfasyntax (struct dfa *dfa, reg_syntax_t bits, int fold, unsigned char eol, int lazy ); 
+#else
+void dfasyntax (struct dfa *dfa, reg_syntax_t bits, int fold, unsigned char eol); 
+#endif 
+void dfacomp (struct dfa *dfa, char const *s, size_t len, int searchflag);
+void dfafree (struct dfa *dfa); 
 
 #endif

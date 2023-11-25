@@ -53,6 +53,9 @@ nel_symbol *nel_func_dec (struct nel_eng *eng, register char *name, register nel
 nel_symbol *nel_evt_dec(struct nel_eng *eng, char *name, nel_type *type, unsigned_int class );
 nel_symbol *nel_dec (struct nel_eng *eng, register char *name, register nel_type *type, register int stor_class);
 
+int nel_global_init(struct nel_eng *eng, nel_symbol *sym1, nel_expr *expr2);
+int nel_dec_init(struct nel_eng *eng, nel_symbol *sym, nel_expr *expr);
+int nel_s_u_init(struct nel_eng *eng, nel_symbol *sym1, nel_expr *expr2);
 
 #endif /* DEC_H */
 

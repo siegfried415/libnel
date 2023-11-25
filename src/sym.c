@@ -9,17 +9,17 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <engine.h>
-#include <errors.h>
-#include <io.h>
-#include <sym.h>
-#include <stmt.h>
-#include <intp.h>
-#include <evt.h>
-#include <type.h>
-#include <expr.h>
-#include <prod.h>
-#include <mem.h>
+#include "engine.h"
+#include "errors.h"
+#include "io.h"
+#include "sym.h"
+#include "stmt.h"
+#include "intp.h"
+#include "evt.h"
+#include "type.h"
+#include "expr.h"
+#include "prod.h"
+#include "mem.h"
 
 /*
  
@@ -619,10 +619,7 @@ nel_symbol *nel_static_symbol_alloc (struct nel_eng *eng, char *name, nel_type *
 	/* exit critical section */
 	/*************************/
 	nel_unlock (&nel_static_symbols_lock);
-
-	//added by zhangbin, 2006-11-22
 	nel_zero(sizeof(nel_symbol), retval);
-	//end
 	
 	/*********************************/
 	/* initialize members and return */
@@ -717,7 +714,7 @@ void nel_print_symbol (FILE *file, register nel_symbol *symbol, int indent)
 {
 	if (symbol != NULL) {
 		tab (indent);
-		fprintf (file, "0x%x\n", symbol);
+		fprintf (file, "0x%p\n", (void *)symbol);
 		tab (indent);
 		fprintf (file, "name: ");
 		nel_print_symbol_name (file, symbol, 0);
@@ -726,7 +723,7 @@ void nel_print_symbol (FILE *file, register nel_symbol *symbol, int indent)
 		fprintf (file, "type:\n");
 		nel_print_type (file, symbol->type, indent + 1);
 		tab (indent);
-		fprintf (file, "value: 0x%x\n", symbol->value);
+		fprintf (file, "value: 0x%p\n", (void *)symbol->value);
 		tab (indent);
 		fprintf (file, "class: %s\n", nel_C_name (symbol->class));
 		tab (indent);
@@ -738,15 +735,15 @@ void nel_print_symbol (FILE *file, register nel_symbol *symbol, int indent)
 		tab (indent);
 		fprintf (file, "level: %d\n", symbol->level);
 		tab (indent);
-		fprintf (file, "table: 0x%x\n", symbol->table);
+		fprintf (file, "table: 0x%p\n", (void *)symbol->table);
 		tab (indent);
-		fprintf (file, "s_u: 0x%x\n", symbol->s_u);
+		fprintf (file, "s_u: 0x%p\n", (void *)symbol->s_u);
 		tab (indent);
-		fprintf (file, "member: 0x%x\n", symbol->member);
+		fprintf (file, "member: 0x%p\n", (void *)symbol->member);
 		tab (indent);
-		fprintf (file, "next: 0x%x\n", symbol->next);
+		fprintf (file, "next: 0x%p\n", (void *)symbol->next);
 		tab (indent);
-		fprintf (file, "data: 0x%x\n", symbol->data);
+		fprintf (file, "data: 0x%p\n", (void *)symbol->data);
 	} else {
 		tab (indent);
 		nel_print_symbol_name (file, symbol, 0);
@@ -840,7 +837,7 @@ nel_symbol *nel_lookup_symbol (char *name, ...)
 
 		chain = table->chains + index;
 		nel_lock (&(chain->lock)) ;
-		for (scan = chain->symbols; scan != NULL; scan = scan->next)	//modified by zhangbin, 2006-5-26
+		for (scan = chain->symbols; scan != NULL; scan = scan->next)
 		{
 			if(!scan->name)
 				continue;
@@ -874,7 +871,6 @@ nel_symbol *nel_symbol_dup(struct nel_eng *eng, nel_symbol *old)
 
 		new = nel_static_symbol_alloc(eng, nname, old->type,nvalue, old->class, old->lhs, old->source_lang, old->level);
 
-		/* wyong, 2004.5.23 */
 		//new->prev_hander = old->prev_hander;
 		//new->post_hander = old->post_hander;
 		//new->run_hander = old->run_hander;
@@ -923,7 +919,7 @@ void nel_list_symbols (struct nel_eng *eng, FILE *file, nel_symbol_table *table)
 			fprintf (file, "chain 0x%x\n", i);
 		}
 		for (; (scan != NULL); scan = scan->next) {
-			fprintf (file, "level %d : %I\n", scan->level, scan);
+			fprintf (file, "level %d : %p\n", scan->level, (void *)scan);
 		}
 		nel_unlock (&(chain_scan->lock))
 		;
@@ -1206,7 +1202,6 @@ void emit_symbol(FILE *fp, nel_symbol *symbol)
 		case nel_D_SIGNED_SHORT_INT:
 		case nel_D_UNSIGNED_SHORT:
 		case nel_D_UNSIGNED_SHORT_INT:
-			/* bugfix, wyong, 2006.4.26 */
 			if(symbol->class == nel_C_CONST)
 				fprintf(fp, "%d", (int) (*((short *)symbol->value)));
 			else
@@ -1265,7 +1260,6 @@ void emit_symbol(FILE *fp, nel_symbol *symbol)
 
 		case nel_D_ENUM:
 		case nel_D_ENUM_TAG:		/* tags have type descriptors		*/
-			/* bug fix, wyong, 2004.6.29 */
 			fprintf(fp, "%s",symbol->name);
 			break;
 
@@ -1389,7 +1383,7 @@ int evt_symbol_update_dollar(struct nel_eng *eng, nel_symbol *symbol, int pos, i
 		sscanf(symbol->name, "$%d", &old_value);
 		if(old_value < 0 
 			/* if pos > 0, we do empty remove, therefore pos 
-			equal to old_value is not allowed, wyong, 2006.9.15 */
+			equal to old_value is not allowed. */
 			|| (pos > 0 && old_value == pos)) {
 			/*
 			gen_error(eng, nel_R_GENERATOR, NULL,0, 
@@ -1408,46 +1402,41 @@ int evt_symbol_update_dollar(struct nel_eng *eng, nel_symbol *symbol, int pos, i
 	return 0;
 }
 
-//added by zhangbin, 2006-7-19
 void static_symbol_dealloc(struct nel_eng *eng)
 {
-	while(nel_static_symbol_chunks)
-	{
+	while(nel_static_symbol_chunks) {
 		nel_static_symbol_chunk *chunk = nel_static_symbol_chunks->next;
 		nel_dealloca(nel_static_symbol_chunks->start);
 		nel_dealloca(nel_static_symbol_chunks); 
 		nel_static_symbol_chunks = chunk;
 	}
-	nel_static_symbols_next = nel_static_symbols_end = nel_free_static_symbols = NULL;
+	nel_static_symbols_next = NULL;
+	nel_static_symbols_end = NULL;
+	nel_free_static_symbols = NULL;
 }
-//end
 
 
-//added by zhangbin, 2006-7-19
 void static_name_dealloc(struct nel_eng *eng)
 {
-	while(nel_static_name_chunks)
-	{
+	while(nel_static_name_chunks) {
 		nel_static_name_chunk *chunk = nel_static_name_chunks->next;
 		nel_dealloca(nel_static_name_chunks->start); 
 		nel_dealloca(nel_static_name_chunks); 
 		nel_static_name_chunks = chunk;
 	}
-	nel_static_names_next = nel_static_names_end = NULL;
+	nel_static_names_next = NULL;
+	nel_static_names_end = NULL;
 }
-//end
 
 
-//added by zhangbin, 2006-7-19
 void static_value_dealloc(struct nel_eng *eng)
 {
-	while(nel_static_value_chunks)
-	{
+	while(nel_static_value_chunks) {
 		nel_static_value_chunk *chunk = nel_static_value_chunks->next;
 		nel_dealloca(nel_static_value_chunks->start); 
 		nel_dealloca(nel_static_value_chunks); 
 		nel_static_value_chunks = chunk;
 	}
-	nel_static_values_next = nel_static_values_end = NULL;
+	nel_static_values_next = NULL;
+	nel_static_values_end = NULL;
 }
-//end

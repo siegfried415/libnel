@@ -1,7 +1,3 @@
-/*
- * lr.c 
- * $Id: gen.c,v 1.25 2006/10/12 05:58:55 wyong Exp $ 
- */
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -23,7 +19,8 @@
 #include "gen.h"
 #include "free_func.h"
 #include "action.h"
-
+#include "io.h" 
+#include "action.h" 
 
 void set_transition(struct nel_eng *, struct itemset *, nel_symbol *, struct itemset *);
 void do_gen_itemset_closure(struct nel_eng *, struct nel_LIST *, struct lritem *);
@@ -119,7 +116,7 @@ int gen_compute_reachable(struct nel_eng *eng, nel_symbol *nt)
 		reach_nonterm_num++;
 		nt->_parent->_reachable = 1;
 
-		if(nt->_isolate) //wyong, 2006.3.9  
+		if(nt->_isolate) 
 			return 0;
 
 		for(prod=eng->productions; prod; prod=prod->next) {
@@ -277,13 +274,8 @@ int gen_compute_derivable(struct nel_eng *eng)
 int gen_derivable_init(struct nel_eng *eng)
 {
 	int i, j;
-	//modified by zhangbin, 2006-7-17, malloc=>nel_malloc
-#if 1
 	nel_malloc(eng->gen->derivable, eng->numNonterminals * eng->numNonterminals, char);
-#else
-	eng->gen->derivable = malloc(eng->numNonterminals * eng->numNonterminals);
-#endif
-	//end modified, 2006-7-17
+
 	for(i=0; i < eng->numNonterminals; i++) {
 		for(j= 0; j < eng->numNonterminals; j++) {
 			/*------------------------------------------------
@@ -336,7 +328,6 @@ REDO_FIRST:
 
 		termset_init(&ts, eng->numTerminals);
 
-		/* wyong, 2004.12.1 */
 		//if(prod->type->prod.rel == REL_EX) {
 		//	termset_set(&ts, eng->notSymbol->id);
 		//} else 
@@ -347,12 +338,10 @@ REDO_FIRST:
 		for(sl = prod->type->prod.rhs; sl; sl = sl->next) {
 			/*then check if this can offer something to ts */
 			if( sl->symbol->class == nel_C_TERMINAL ) {
-				/* wyong, 2004.12.2 */
 				termset_set_2(eng, &ts, sl->symbol->id );
 				break;
 			}
 
-			/* wyong, 2004.12.2 */
 			termset_merge_2(eng, &ts, &(sl->symbol->_first));
 			if(!gen_can_derivable_empty(eng, sl->symbol)) {
 				break;
@@ -363,9 +352,8 @@ REDO_FIRST:
 		if(termset_merge(&(prod->type->prod.lhs->_first),&ts)) {
 			changes++;
 		}
-		//added by zhangbin, 2006-7-18, to deal with memory leak
+
 		nel_dealloca(ts.bitmap); 
-		//end
 	}
 
 	for(i= eng->nonterminals ; i ; i = i->next) {
@@ -387,7 +375,6 @@ REDO_FIRST:
 'timeout' is in dprod level, so we inplenment it here.
 on the contract,'others' will be not processed until 
 itemset is established in itemSetClosure.  
-wyong, 2004.11.23 
 */
 int gen_compute_dprod_first(struct nel_eng *eng)
 {
@@ -415,7 +402,7 @@ int gen_compute_dprod_first(struct nel_eng *eng)
 			/*
 			when we meet productions like 'A: B; A: others;',
 			we need not set 'other' flag on in lookahead of dprod 
-			derive from 'A:others', wyong, 2004.12.1 
+			derive from 'A:others'.
 			*/
 			if( prod->type->prod.rel != REL_OT
 				&& termset_test(&lhs->_first, eng->otherSymbol->id)) {
@@ -428,9 +415,7 @@ int gen_compute_dprod_first(struct nel_eng *eng)
 					break;
 				}
 
-				/* found a bug here, wang.yong 2003.11.1*/
 				termset_merge_2(eng, &dprod->firstSet,&rsl->symbol->_first);
-
 				if(!gen_can_derivable_empty(eng, rsl->symbol)) {
 					break;
 				}
@@ -472,7 +457,7 @@ void do_gen_itemset_closure(struct nel_eng *eng, struct nel_LIST *donelist, stru
 
 		if (is_dot_at_end(it->dprod)) {
 			/* Since 'other','timeout' and 'not' are not for LR
-			lookahead alogrithm , so clear it, wyong, 2004.12.1*/
+			lookahead alogrithm , so clear it. */
 			termset_unset(&it->lookahead, eng->otherSymbol->id);
 			termset_unset(&it->lookahead, eng->timeoutSymbol->id);
 			return ;
@@ -493,7 +478,7 @@ void do_gen_itemset_closure(struct nel_eng *eng, struct nel_LIST *donelist, stru
 			//nel_symbol *term;
 
 			/* use this tech to have the 'REL_EX' production
-			be processed first, wyong, 2004.11.30 */
+			be processed first. */
 			if (prod->type->prod.rel != flag
 				|| strcmp(prod->type->prod.lhs->name, B->name)){
 				goto get_next_prod;
@@ -523,7 +508,8 @@ void do_gen_itemset_closure(struct nel_eng *eng, struct nel_LIST *donelist, stru
 			of lookahead, because normal lookahead can only
 			happen after the C and D,  
 			 --------------------------------------------*/
-			if(termset_test(&it->dprod->firstSet, eng->otherSymbol->id) || termset_test(&it->lookahead, eng->otherSymbol->id))
+			if(termset_test(&it->dprod->firstSet, eng->otherSymbol->id) 
+				|| termset_test(&it->lookahead, eng->otherSymbol->id))
 				termset_set(&ts,eng->otherSymbol->id);
 
 
@@ -557,16 +543,12 @@ void do_gen_itemset_closure(struct nel_eng *eng, struct nel_LIST *donelist, stru
 			 -------------------------------------*/
 			nit = item_alloc(eng, ndp, &ts);
 			nit->kernel = 0;
-
-			/* wyong, 2004.5.23 */
 			nit->offset = it->dprod->dot + it->offset;
 
 			/* recurive call the itemClosure */
 			do_gen_itemset_closure(eng, donelist, nit);
 			
-			//added by zhangbin, 2006-7-21
 			nel_dealloca(ts.bitmap); 
-			//end
 get_next_prod:
 			prod = prod->next;
 			if( !prod) {
@@ -605,13 +587,7 @@ void gen_itemset_closure(struct nel_eng *eng, struct itemset *is)
 			add_item_to_itemset_nonkernel(is, it);
 		}
 		next = this->next;
-		//modified by zhangbin, 2006-7-17
-#if 1
-		//nel_free(this);	//nel_dealloca(this);	zhangbin, 2006-10-12
-#else
-		free(this);
-#endif
-		//end
+		//nel_free(this);	
 	}
 
 	return;
@@ -638,7 +614,6 @@ struct itemset *gen_itemset_create(struct nel_eng *eng,struct itemset *src, stru
 	int dokernel;
 	struct itemset *ret = NULL;
 	
-	/* wyong, 2005.5.2 */
 	if( do_other ) {
 		ret = (termset_test(&src_it->lookahead, sym->id)) 
 			? others_itemset_alloc(eng, src_it->dprod->dot + 1, 
@@ -658,7 +633,6 @@ struct itemset *gen_itemset_create(struct nel_eng *eng,struct itemset *src, stru
 	{
 		nel_symbol *s;
 
-		/* wyong, 2006.9.22 */
 		if( flag == ITEM_NO_KERNEL && dokernel 
 			|| flag == ITEM_KERNEL && !dokernel) {
 			continue;
@@ -673,8 +647,8 @@ struct itemset *gen_itemset_create(struct nel_eng *eng,struct itemset *src, stru
 				'destIter'
 			 --------------------------------------------------*/
 			nit = item_alloc(eng, get_next_dprod(it->dprod), &it->lookahead);
-			nit->kernel = 1;	  /* wyong , 2004.5.23 */
-			nit->offset = it->offset; /*bug fix, wyong, 2004.6.29 */
+			nit->kernel = 1;
+			nit->offset = it->offset; 
 
 			/* if it has timeout value, we need change nit 's
 			timeout value to '-1' to stop the timer.
@@ -715,7 +689,6 @@ int itemset_symbol_cnt(struct nel_eng *eng,  struct itemset *is, nel_symbol *sym
 	{
 		nel_symbol *s;
 
-		/* wyong, 2006.9.22 */
 		if( flag == ITEM_NO_KERNEL && dokernel 
 			|| flag == ITEM_KERNEL && !dokernel) {
 			continue;
@@ -766,8 +739,7 @@ start_itemset:
 			}
 
 			/* if found a 'other', no necessary to create a virtual
-			itemset inhired from 'others: others,..., others', 
-			wyong, 2005.5.2 */
+			itemset inhired from 'others: others,..., others'. */
 			if(do_other == 0 ) {
 				sym = sym_after_dot(it->dprod);
 				found_other = (sym == eng->otherSymbol); 
@@ -780,7 +752,7 @@ start_itemset:
 				max_dot = it->dprod->dot;
 			}
 			
-			/* wyong, 2006.9.22
+			/* 
 			   (k > 0 && n = 0) || ( k ==0 && n > 0 ): flag = 0 
 			   (k > 0 && n > 0) : if dokernel not set, flag = 1
 						otherwise flag = 2 */
@@ -795,12 +767,11 @@ start_itemset:
 			if((ois = lookup_itemset(&donelist, nis))) {
 				itemset_dealloc(eng, nis);
 				set_transition(eng, is, sym, ois);
-				continue;	//bugfix, wyong, 2005.10.30
+				continue;
 			}
 
 			/* In the case of kernel item has multiple symbols,
-			don't generate closure, wyong, 2006.9.22 */
-			/* in fact, it 's a bug, wyong, 2006.10.11 */
+			don't generate closure. */
 			//if( flag == ITEM_BOTH || flag == ITEM_NO_KERNEL ){
 				gen_itemset_closure(eng, nis);
 			//}
@@ -813,7 +784,7 @@ start_itemset:
 
 		/* when no 'other' found, we have to lookinto lookahead
 		of each 'it' in 'is', add add virtual 'other' state 
-		if necessary, wyong, 2005.5.2 */
+		if necessary. */
 		if( do_other == 0 && !found_other) {
 			do_other = 1;
 			goto start_itemset;
@@ -873,7 +844,7 @@ void set_transition(struct nel_eng *eng, struct itemset *is, nel_symbol *sym, st
 		return;
 	}
 
-	if ( __lookup_item_from(list, dest) == 0 ){
+	if ( __lookup_item_from(list, (nel_symbol *)dest) == 0 ){
 		if( dest && ( entry = __make_entry((nel_symbol *)dest))) {
 			__append_entry_to(list, entry);
 		}
@@ -931,7 +902,7 @@ struct nel_LIST *get_reductions(struct nel_eng *eng, struct itemset *is, nel_sym
 			continue;
 		}
 
-		/* set default prod, wyong,  2004.12.23 */
+		/* set default prod. */
 		prod = item->dprod->prod;
 
 		switch(eng->lr_level)
@@ -969,8 +940,7 @@ struct nel_LIST *get_reductions(struct nel_eng *eng, struct itemset *is, nel_sym
 				}
 
 				/* if lookahead is 'not', we use prod 'not' : 
-				'not'...'not' rather then item->dprod->prod,
-				wyong, 2004.12.23 */
+				'not'...'not' rather then item->dprod->prod.  */
 				if( lookahead == eng->notSymbol) {
 					if(!(prod = lookup_prod(eng, eng->notSymbol, item->dprod->dot))) {
 						continue;
@@ -1128,8 +1098,8 @@ int gen_resolve_conflicts(struct nel_eng *eng, struct itemset *state, nel_symbol
 
 
 
-static numAmbig = 0;
-ambig_entry_search(struct nel_eng *eng, ActionEntry entry, ActionEntry reduction)
+static int numAmbig = 0;
+int ambig_entry_search(struct nel_eng *eng, ActionEntry entry, ActionEntry reduction)
 {
 	int start, total;
 	int i;
@@ -1203,7 +1173,7 @@ int shift_action_entry_alloc(struct nel_eng *eng,  struct itemset *state, nel_sy
 			//printf("shift_action_entry_alloc: entry==0, add(%d)\n", encodeShift(eng, shiftDest->id));
 			actionEntry(eng, state->id, term->id) = encodeShift(eng, shiftDest->id);
 
-			if(term->_parent ){//bugfix, wyong,  2006.3.15 
+			if(term->_parent ){
 				int pid = term->_parent->id;
 				if( actionEntry(eng, state->id, term->_parent->id) == 0 ){	// not set yet
 					actionEntry(eng, state->id, term->_parent->id) = encodeShift(eng, eng->numStates);
@@ -1241,7 +1211,6 @@ int shift_action_entry_alloc(struct nel_eng *eng,  struct itemset *state, nel_sy
 			/*entry == encodeShift(eng, shiftDest->id), need do nothing */
 		}
 
-		//wyong, 2006.9.22 
 		//if( ret > 0 && term != term->_parent ) {
 		//	struct itemset tmp; tmp.id=eng->numStates;
 		//	printf("------>call shift_action_entry_alloc");
@@ -1279,8 +1248,6 @@ int reduce_action_entry_alloc(struct nel_eng *eng,  struct itemset *state, struc
 		}
 
 		else if (isAmbigAction(eng, entry)) {
-			//bugfix of rule/rule-2.nel found by yanf, 
-			//wyong, 2006.5.30 
 			if ( !ambig_entry_search(eng, entry, encodeReduce(eng,pid))) {
 				ambig_entry_insert(eng, entry,encodeReduce(eng,pid));
 				eng->stateTable[state->id].has_reduce++;
@@ -1328,7 +1295,7 @@ int gen_compute_action_tbl(struct nel_eng *eng)
 
 			/* 
 			Since SS/SR/RR conflicts are allowed, resolve are not
-			needed.  wyong, 2006.9.22 
+			needed.  
 			numReductions = __get_count_of(&reductions);
 			actions= gen_resolve_conflicts(eng, state, term, 
 					shiftDest,numReductions, reductions,1);
@@ -1367,7 +1334,7 @@ int goto_entry_alloc(struct nel_eng *eng,  struct itemset *state, nel_symbol *nt
 			//printf("goto_entry_alloc: entry == 0, encodeGoto(eng, gotoDest->id) =%d \n", encodeGoto(eng, gotoDest->id));
 			//}
 			gotoEntry(eng, state->id, nt->id) = encodeGoto(eng, gotoDest->id);		
-			if(nt->_parent ){//bugfix, wyong,  2006.3.15 
+			if(nt->_parent ){
 				if( gotoEntry(eng, state->id, nt->_parent->id) == 0 ){	// not set yet
 					gotoEntry(eng, state->id, nt->_parent->id) = encodeGoto(eng, eng->numStates);
 				}
@@ -1501,7 +1468,6 @@ int gen_compute_state_info_tbl(struct nel_eng *eng)
 	for(state= eng->gen->itemSets; state; state= state->next) {
 		eng->stateTable[state->id].priority = state->priority;	
 	
-		/* wyong, 2006.9.25*/
 		for( dot_pos=0,it= state->kernelItems; it; it=it->next ) {
 			if (dot_pos == 0 ){
 				dot_pos = it->dprod->dot;
@@ -1511,8 +1477,7 @@ int gen_compute_state_info_tbl(struct nel_eng *eng)
 			}
 		}
 
-		/* the length of stack for reduce must deteminated,
-		wyong, 2006.9.25  */
+		/* the length of stack for reduce must deteminated. */
 		eng->stateTable[state->id].dot_pos = dot_pos;
 
 	}
@@ -1523,63 +1488,30 @@ int gen_compute_state_info_tbl(struct nel_eng *eng)
 int gen_tables_init(struct nel_eng *eng)
 {
 	//int i;
-//modified by zhangbin. 2006-10-8
-#if 1
 	nel_calloc(eng->symbolInfo, eng->numTerminals + eng->numNonterminals+1, nel_symbol*);
-	if(!eng->symbolInfo)
-	{
+	if(!eng->symbolInfo) {
 		gen_error(eng,"nel_calloc failed in initSymbolInfoTable\n");
 		return -1;
 	}
-#else
-	if(!(eng->symbolInfo = calloc(eng->numTerminals + eng->numNonterminals+1, sizeof(nel_symbol *)))) {
-		gen_error(eng,"calloc failed in initSymbolInfoTable\n");
-		return -1;
-	}
-#endif
-//end, 2006-10-8
-	//added by zhangbin, 2006-7-25
+
 	nel_zero((eng->numTerminals + eng->numNonterminals+1) * sizeof(nel_symbol *), eng->symbolInfo);
-	//end
 	eng->symbolInfo = eng->symbolInfo + eng->numNonterminals;
 
-//modified by zhangbin, 2006-10-8
-#if 1
 	nel_calloc(eng->prodInfo, eng->numProductions, ProdInfo);
-	if(!eng->prodInfo)
-	{
+	if(!eng->prodInfo) {
 		gen_error(eng,"nel_calloc failed in initGotoTable\n");
 		return -1;
 	}
-#else
-	if(!(eng->prodInfo = calloc(eng->numProductions, sizeof(ProdInfo)))) {
-		gen_error(eng,"calloc failed in initGotoTable\n");
-		return -1;
-	}
-#endif
-//end, 2006-10-8
-	//added by zhangbin, 2006-7-25
-	nel_zero(eng->numProductions * sizeof(ProdInfo), eng->prodInfo);
-	//end
 
-//modified by zhangbin, 2006-10-8
-#if 1
+	nel_zero(eng->numProductions * sizeof(ProdInfo), eng->prodInfo);
+
 	nel_calloc(eng->actionTable, eng->numStates * eng->numTerminals, ActionEntry);
-	if(!eng->actionTable)
-	{
+	if(!eng->actionTable) {
 		gen_error(eng, "nel_calloc failed in initActionTable:actionTable\n");
 		return -1;
 	}
-#else
-	if(!(eng->actionTable = calloc(eng->numStates * eng->numTerminals, sizeof(ActionEntry)))) {
-		gen_error(eng, "calloc failed in initActionTable:actionTable\n");
-		return -1;
-	}
-#endif
-//end, 2006-10-8
-	//added by zhangbin, 2006-7-25
+
 	nel_zero(eng->numStates * eng->numTerminals * sizeof(ActionEntry), eng->actionTable);
-	//end
 
 
 #if 0
@@ -1590,76 +1522,37 @@ int gen_tables_init(struct nel_eng *eng)
 	}
 #endif
 
-
-//modified by zhangbin, 2006-10-8
-#if 1
 	nel_calloc(eng->gotoTable, eng->numStates * eng->numNonterminals, GotoEntry);
-	if(!eng->gotoTable)
-	{
+	if(!eng->gotoTable) {
 		gen_error(eng, "nel_calloc failed in initGotoTable\n");
 		return -1;
 	}
-#else
-	if (!(eng->gotoTable = calloc(eng->numStates * eng->numNonterminals, sizeof(GotoEntry)))) {
-		gen_error(eng, "calloc failed in initGotoTable\n");
-		return -1;
-	}
-#endif
-//end, 2006-10-6
-	//added by zhangbin, 2006-7-25
-	nel_zero(eng->numStates * eng->numNonterminals * sizeof(GotoEntry), eng->gotoTable);
-	//end
 
-//modified by zhangbin, 2006-10-8
-#if 1
+	nel_zero(eng->numStates * eng->numNonterminals * sizeof(GotoEntry), eng->gotoTable);
+
 	nel_calloc(eng->ambigAction, eng->numStates * (eng->numProductions + 1), ActionEntry);
-	if(!eng->ambigAction)
-	{
+	if(!eng->ambigAction) {
 		gen_error(eng, "nel_calloc failed in ambigAction\n");
 		return -1;
 	}
-#else
-	/* wyong, 2006.3.2 */
-	if (!(eng->ambigAction = calloc(eng->numStates * (eng->numProductions + 1), sizeof(ActionEntry)))) {
-		gen_error(eng, "calloc failed in ambigAction\n");
-		return -1;
-	}
-#endif
-//end, 2006-10-8
-	//added by zhangbin, 2006-7-25
 	nel_zero(eng->numStates * (eng->numProductions + 1) * sizeof(ActionEntry), eng->ambigAction);
-	//end
 
-//modified by zhangbin, 2006-10-8
-#if 1
 	nel_calloc(eng->stateTable, eng->numStates, struct stateInfo);
-	if(!eng->stateTable)
-	{
+	if(!eng->stateTable) {
 		gen_error(eng, "nel_calloc failed in initActionTable:stateTable\n");
 		return -1;
 	}
-#else
-	if(!(eng->stateTable =(struct stateInfo *)calloc(eng->numStates, sizeof(struct stateInfo)))) {
-		gen_error(eng, "calloc failed in initActionTable:stateTable\n");
-		return -1;
-	}
-#endif
-//end, 2006-10-8
-	//added by zhangbin, 2006-7-25
 	nel_zero(eng->numStates * sizeof(struct stateInfo), eng->stateTable);
-	//end
+
 
 	nel_malloc(eng->classTable, eng->numStates * (eng->numTerminals + 1 + eng->numNonterminals), struct classInfo);
 	if(!eng->classTable) {
 		gen_error(eng, "neLl_malloc failed in classTable\n");
 		return -1;
 	}
-	//added by zhangbin, 2006-7-25
 	nel_zero(eng->numStates * (eng->numTerminals + 1 + eng->numNonterminals) * sizeof(struct classInfo), eng->classTable);
-	//end
 
 #if 0
-	/* wyong, 2004.11.27 */
 	if(!(eng->state_timeout_tbl=(int *)calloc(eng->numStates, sizeof(int)))) {
 		gen_error(eng, "calloc failed in initActionTable:state_timeout_tbl\n");
 		return -1;
@@ -1674,17 +1567,14 @@ int gen_init(struct nel_eng *eng)
 	if(!eng)
 		return -1;
 
-	//if(eng->lr_init_flag == 0) {
 	nel_malloc(eng->gen, 1, struct eng_gen);
 	nel_zero(sizeof(struct eng_gen), eng->gen);
 	eng->gen->cycle = 0;
 	eng->gen->errors = 0;
 	eng->gen->derivable = NULL ;
 	eng->gen->nextItemSetId = 0;
-
 	eng->lr_init_flag = 1;
 
-	//}
 	return 0;
 
 }
@@ -1694,11 +1584,8 @@ int nel_generator(struct nel_eng *eng)
 {
 	int i;
 	priority = 0;
-	//added by zhangbin, 2006-7-26
 	numAmbig = 0;
-	//end
-	/*NOTE,NOTE,NOTE, the function is bad for lossing error handle 
-	 wyong, 2006.3.9 */
+	/*NOTE,NOTE,NOTE, the function is bad for lossing error handle */ 
 	if(eng->startSymbol == NULL || eng->startSymbol->type == NULL) {
 		gen_warning(eng, "undeclaration of link\n"); 
 	}
@@ -1709,7 +1596,7 @@ int nel_generator(struct nel_eng *eng)
 	}
 
 
-	for(i = 1; i<= rhs_num_max ; i++) {  /* wyong, 2006.4.13 */
+	for(i = 1; i<= rhs_num_max ; i++) {  
 		if ( others_prod_alloc(eng, i) == NULL ) {
 			gen_error(eng, "others prod alloc error(%d)", i);
 			return -1;
@@ -1758,7 +1645,7 @@ int nel_generator(struct nel_eng *eng)
 	}
 
 
-	/* do the real work here, wyong, 2004.12.2 */
+	/* do the real work here */
 	if(gen_compute_symbol_first(eng) < 0
 		|| gen_compute_dprod_first(eng) < 0
 		|| gen_itemsets_create(eng) < 0 ) {
@@ -1787,14 +1674,12 @@ output:
 
 }
 
-//added by zhangbin, 2006-7-18
 void gen_dealloc(struct nel_eng *eng)
 {
 	//clean up all terminals
 	nel_symbol *term;
 	term = eng->terminals;
-	while(term)
-	{
+	while(term) {
 		nel_symbol *tmp;
 		tmp = term->next;
 		event_symbol_dealloc(eng, term);
@@ -1803,8 +1688,7 @@ void gen_dealloc(struct nel_eng *eng)
 
 	//clean up all nonterminals
 	nel_symbol *nonterm = eng->nonterminals;
-	while(nonterm)
-	{
+	while(nonterm) {
 		nel_symbol *tmp = nonterm->next;
 		if(nonterm->_first.bitmap)
 			nel_dealloca(nonterm->_first.bitmap);
@@ -1814,34 +1698,29 @@ void gen_dealloc(struct nel_eng *eng)
 	
 	//clean up all dotted prods in eng->gen
 	nel_symbol *prod = eng->productions;
-	if(eng->gen->dottedProds)
-	{
-		for(prod=eng->productions; prod; prod=prod->next)
-		{
+	if(eng->gen->dottedProds) {
+		for(prod=eng->productions; prod; prod=prod->next) {
 			int id=prod->id;
 			int pos;
-			for(pos=0; pos <= prod->type->prod.rhs_num; pos++)
-			{
+			for(pos=0; pos <= prod->type->prod.rhs_num; pos++) {
 				struct dprod *dp=&(eng->gen->dottedProds[id][pos]);
 				if(dp->firstSet.bitmap)
 					nel_dealloca(dp->firstSet.bitmap); 
 			}
 			nel_dealloca(eng->gen->dottedProds[id]); 
-	}
-	nel_dealloca(eng->gen->dottedProds); 
+		}
+		nel_dealloca(eng->gen->dottedProds); 
 	}
 
 	
 	//clean up all productions
 	prod=eng->productions;
-	while(prod)
-	{
+	while(prod) {
 		nel_symbol *temp_prod = prod->next;
 
 		//clean up prod's rhs, which are allocated in nel.y
 		struct nel_RHS *rhs = prod->type->prod.rhs;
-		while(rhs)
-		{
+		while(rhs) {
 			struct nel_RHS *temp_rhs = rhs->next;
 			nel_dealloca(rhs); 
 			rhs = temp_rhs;
@@ -1860,12 +1739,10 @@ void gen_dealloc(struct nel_eng *eng)
 	//3, free itemset's transiton array
 	//4, free itemset
 	struct itemset *is = eng->gen->itemSets;
-	while(is)
-	{
+	while(is) {
 		struct itemset *temp_is = is->next;
 		struct lritem *it = is->kernelItems;
-		while(it)
-		{
+		while(it) {
 			struct lritem *temp_it = it->next;
 			if(it->lookahead.bitmap)
 				nel_dealloca(it->lookahead.bitmap); 
@@ -1873,8 +1750,7 @@ void gen_dealloc(struct nel_eng *eng)
 			it = temp_it;
 		}
 		it = is->nonkernelItems;
-		while(it)
-		{
+		while(it) {
 			struct lritem *temp_it = it->next;
 			if(it->lookahead.bitmap)
 				nel_dealloca(it->lookahead.bitmap); 
@@ -1894,8 +1770,7 @@ void gen_dealloc(struct nel_eng *eng)
 	
 	if(eng->classTable)
 		nel_dealloca(eng->classTable); 
-	if(eng->symbolInfo)
-	{
+	if(eng->symbolInfo) {
 		eng->symbolInfo -= eng->numNonterminals;
 		nel_dealloca(eng->symbolInfo); 
 	}
@@ -1915,4 +1790,3 @@ void gen_dealloc(struct nel_eng *eng)
 	if(eng->gen)
 		nel_dealloca(eng->gen);
 }
-//end

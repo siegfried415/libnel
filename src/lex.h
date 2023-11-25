@@ -51,7 +51,7 @@ struct nel_eng;
 #define nel_T_FLOAT		15
 #define nel_T_FOR		16
 #define nel_T_FORTRAN	17
-//#define nel_T_GOTO		18	//modified by zhangbin
+//#define nel_T_GOTO		18
 #define nel_T_IF		19
 #define nel_T_INT		20
 #define nel_T_LONG		21
@@ -251,7 +251,7 @@ struct eng_lexier {
 	char *tokend;
 	char *buf;
 	int  want_assign;
-	int  want_regexp;	/* wyong, 2006.6.23 */
+	int  want_regexp;
 
 
 	FILE *infile;

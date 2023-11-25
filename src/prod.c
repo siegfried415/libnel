@@ -16,7 +16,7 @@
 #include "intp.h"
 #include "evt.h"
 #include "mem.h"
-
+#include "gen.h" 
 
 int lookup_prod_lhs(struct nel_eng *eng, nel_symbol *symbol)
 {
@@ -58,13 +58,12 @@ struct nel_RHS *rhs_copy_except(struct nel_eng *eng, struct nel_RHS *rhs, struct
 		}else {
 			symbol = event_symbol_copy(eng, scan->symbol);
 			/* update expr variable name such as $'N' to $'N-1', 
-			if 'N' > pos. wyong, 2006.3.11 */ 
+			if 'N' > pos. */ 
 			if(symbol->value) { 
 				
 				if (nel_expr_update_dollar(eng, (union nel_EXPR *)symbol->value, pos, -1) < 0 ){
 					/*NOTE,NOTE,NOTE, don't forget release 
-					all lhs has been duplicated, wyong, 
-					2006.6.14 */
+					all lhs has been duplicated */
 					nel_error(eng, nel_R_GENERATOR, 
 						scan->filename, 
 						scan->line, 
@@ -101,7 +100,7 @@ struct nel_RHS *rhs_copy_except(struct nel_eng *eng, struct nel_RHS *rhs, struct
 
 /******************************************************************************/
 /* nel_remove_empty_prods() removes <empty> event from every productions 's   */
-/* rhs 's list, and create a new production. wyong, 2005.3.27  		      */
+/* rhs 's list, and create a new production. 		  		      */
 /******************************************************************************/
 void replace_empty_event(struct nel_eng *eng, nel_symbol *empty)
 {
@@ -125,10 +124,8 @@ void replace_empty_event(struct nel_eng *eng, nel_symbol *empty)
 			nel_symbol *symbol = scan->symbol;
 			if( symbol == empty ){
 #if 0
-				//added  by zhangbin, 2006-8-2
 				if(scan==type->prod.rhs && !scan->next)
 					goto do_next;
-				//end
 #endif
 				if((nrhs = rhs_copy_except(eng, 
 				prod->type->prod.rhs,scan))) {
@@ -167,7 +164,6 @@ void replace_empty_event(struct nel_eng *eng, nel_symbol *empty)
 						eng->last_production = nprod;
 					}
 #if 0
-					//added by zhangbin, 2006-8-2
 					if(prev)
 						prev->next = prod->next;
 					else
@@ -176,7 +172,6 @@ void replace_empty_event(struct nel_eng *eng, nel_symbol *empty)
 						eng->last_production = prod;
 					nel_dealloca(prod);
 					prod = prev;						
-					//end
 #endif
 					goto do_next;
 
@@ -209,11 +204,9 @@ do_next:
 		prev = prod;
 do_next_2:
 #if 0
-		//added by zhangbin, 2006-8-2
 		if(!prod)
 			prod = eng->productions;
 		else
-		//end
 #endif
 		prod = prod->next;
 
@@ -227,7 +220,7 @@ do_next_2:
 /* this been done by recusicelly calling replace_empty_event when found   */
 /* an empty deriable event note that this function must be called after we    */
 /* have finished the grammer parse, for production interception must be       */
-/* consideration, wyong, 2005.3.27 			  		      */
+/* consideration.		 			  		      */
 /******************************************************************************/
 int remove_empty_prods(struct nel_eng *eng)
 {
@@ -448,7 +441,7 @@ void prod_symbol_dealloc(struct nel_eng *eng, nel_symbol *prod)
 			else
 				eng->productions = prod->next ;
 			if(eng->last_production == prod) eng->last_production = prev;
-			nel_free(prod);	//nel_dealloca(prod); //free(prod); zhangbin, 2006-7-17, zhangbin, 2006-10-12
+			nel_free(prod);	
 			break;
 		}
 	}

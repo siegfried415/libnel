@@ -8,7 +8,7 @@
 
 #ifndef EXPR_H
 #define EXPR_H
-#include <engine.h>
+#include "engine.h"
 
 
 
@@ -24,7 +24,7 @@ typedef enum nel_O_TOKEN {
         nel_O_AND,		/* x && y			*/
         nel_O_ASGN,		/* x = y			*/
         nel_O_ARRAY_INDEX,	/* x[y]				*/
-        nel_O_ARRAY_RANGE,	/* x[y,z] range,wyong, 2006.6.22*/
+        nel_O_ARRAY_RANGE,	/* x[y,z] range			*/
         nel_O_BIT_AND,		/* x & y			*/
         nel_O_BIT_AND_ASGN,	/* x &= y			*/
         nel_O_BIT_OR,		/* x | y			*/
@@ -70,7 +70,7 @@ typedef enum nel_O_TOKEN {
         nel_O_SYMBOL,		/* x (by itself)		*/
         nel_O_NEL_SYMBOL,	/* NEL symbol		*/
         nel_O_TYPEOF,		/* typeof x / typeof (<type>)	*/
-	nel_O_LIST,		/* expr list, wyong, 2005.10.10 */
+	nel_O_LIST,		/* expr list			*/
         nel_O_MAX
 } nel_O_token;
 
@@ -304,7 +304,6 @@ typedef union nel_EXPR {
         }
         symbol;
 
-        /* wyong */
         struct {
                 nel_O_token opcode;
                 struct symbol *symbol;
@@ -372,7 +371,6 @@ typedef union nel_EXPR {
         }
         cond;
 
-	/* wyong, 2006.6.22 */
 	struct {			
                 nel_O_token opcode;
                 union nel_EXPR *array;
@@ -457,27 +455,23 @@ extern nel_lock_type nel_expr_lists_lock;
 /*************************************************************/
 /* declarations for the routines defined in "expr.c" */
 /*************************************************************/
-extern char *nel_O_name (register nel_O_token);
-extern char *nel_O_string (register nel_O_token);
-extern union nel_EXPR *nel_expr_alloc (struct nel_eng *, nel_O_token, ...);
-extern void nel_expr_dealloc (register union nel_EXPR *);
-extern void nel_print_expr (FILE *, register union nel_EXPR *, int);
-extern struct nel_EXPR_LIST *nel_expr_list_alloc (struct nel_eng *, register union nel_EXPR *, register struct nel_EXPR_LIST *);
-extern void nel_expr_list_dealloc (register struct nel_EXPR_LIST *);
-extern void nel_print_expr_list (FILE *, register struct nel_EXPR_LIST *, int);
-extern nel_expr *nel_dup_expr(struct nel_eng *, nel_expr *);
-extern void emit_expr(FILE *fp, union nel_EXPR *expr);
+char *nel_O_name (register nel_O_token);
+char *nel_O_string (register nel_O_token);
+union nel_EXPR *nel_expr_alloc (struct nel_eng *, nel_O_token, ...);
+void nel_expr_dealloc (register union nel_EXPR *);
+void nel_print_expr (FILE *, register union nel_EXPR *, int);
+struct nel_EXPR_LIST *nel_expr_list_alloc (struct nel_eng *, register union nel_EXPR *, register struct nel_EXPR_LIST *);
+void nel_expr_list_dealloc (register struct nel_EXPR_LIST *);
+void nel_print_expr_list (FILE *, register struct nel_EXPR_LIST *, int);
+nel_expr *nel_dup_expr(struct nel_eng *, nel_expr *);
+void emit_expr(FILE *fp, union nel_EXPR *expr);
 
-extern int nel_expr_update_dollar(struct nel_eng *, register nel_expr *expr, int pos, int value);
+int nel_expr_update_dollar(struct nel_eng *, register nel_expr *expr, int pos, int value);
 int nel_expr_diff(nel_expr *e1, nel_expr *e2);
 
-//added by zhangbin, 2006-5-25
-inline nel_type* eval_expr_type(struct nel_eng *eng, nel_expr *expr);
-inline int expr_contain_funcall(struct nel_eng *eng, nel_expr *expr);
-//edd
-
-//added by zhangbin, 2006-7-19
+nel_type* eval_expr_type(struct nel_eng *eng, nel_expr *expr);
+int expr_contain_funcall(struct nel_eng *eng, nel_expr *expr);
 void expr_dealloc(struct nel_eng *eng);
-//end
+void expr_list_dealloc(struct nel_eng *eng);
 
 #endif /* EXPR_H */

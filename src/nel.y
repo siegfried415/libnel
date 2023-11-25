@@ -5,9 +5,7 @@
 %{
 #include <stdio.h>
 #include <stdlib.h>
-
-//wyong, 20230804 
-//#include "pcre.h"	//added by zhangbin, 2006-11-9
+#include <string.h>
 
 #include "engine.h"
 #include "errors.h"
@@ -23,8 +21,9 @@
 #include "intp.h"
 #include "dec.h"
 #include "mem.h"
+#include "class.h"
+#include "nlib/match.h"
 
-//wyong, 20230807
 #define PCRE_CASELESS           0x00000001
 #define PCRE_MULTILINE          0x00000002
 #define PCRE_DOTALL             0x00000004
@@ -46,7 +45,7 @@
 #define PCRE_FIRSTLINE          0x00040000
 
 
-#define NEL_PURE_ARRAYS 1	//wyong, 2006.6.22 
+#define NEL_PURE_ARRAYS 1	
 
 	/*************************************/
 	/* the syntax error handling routine */
@@ -90,27 +89,24 @@
 	/* many of the actions that construct expression trees are */
 	/* nearly identical, and we can #define the entire action. */
 	/***********************************************************/
-#define unary_op_acts(_O_token)	 							\
-	{														\	
-	   register nel_expr *__expr;							\
-	   parser_pop_expr (eng, __expr);						\
-	   __expr = nel_expr_alloc (eng, (_O_token), __expr);	\	
-	   parser_push_expr (eng, __expr);						\
+#define unary_op_acts(_O_token)	 					\
+	{								\
+	   register nel_expr *__expr;					\
+	   parser_pop_expr (eng, __expr);				\
+	   __expr = nel_expr_alloc (eng, (_O_token), __expr);		\
+	   parser_push_expr (eng, __expr);				\
 	}
 
 #define binary_op_acts(_O_token) \
 	{								\
-	   register nel_expr *__expr1;				\
-	   register nel_expr *__expr2;				\
+	   register nel_expr *__expr1;					\
+	   register nel_expr *__expr2;					\
 	   parser_pop_expr (eng, __expr2);				\
 	   parser_pop_expr (eng, __expr1);				\
 	   __expr1 = nel_expr_alloc (eng, (_O_token), __expr1, __expr2);\
 	   parser_push_expr (eng, __expr1);				\
 	}
 
-//added by zhangbin, 2006-6-26
-//wyong, 20230803 
-//inline 
 int nel_O_asgn_expr(nel_O_token type)
 {
 	switch(type)
@@ -582,7 +578,6 @@ lhs	: event
 		parser_error(eng, "production: %s has no type declared",name);
 	}
 	
-	/* wyong, 2006.6.5 */
 	if (symbol->class == nel_C_TERMINAL) {
 		parser_error(eng, "the left part of production can't be atom");
 	}
@@ -596,7 +591,7 @@ lhs	: event
 
 /******************************************************************************/
 /* three relationship indicator are now supported: '!', ':', and '!', the     */
-/* indicator '->' was should not used anymore. wyong, 2005.3.28 	      */
+/* indicator '->' was should not used anymore. 				      */
 /******************************************************************************/
 REL	:
 nel_T_EXCLAM 	/* '!' */
@@ -627,7 +622,6 @@ nel_T_EXCLAM 	/* '!' */
 /******************************************************************************/
 /* there must an lhs symbol exist in the stack, so we can create the prod     */
 /* at this point and insert prod into eng->parser->productions linked list,   */
-/* wyong, 2005.3.28 		      					      */
 /******************************************************************************/
 rhs_list:
 rel_rhs_block
@@ -660,7 +654,7 @@ rel_rhs_block
 	/**********************************************************************/
 	//parser_push_prod(eng, prod);
 
-	/* free all instance variable symbol such as $1,..., wyong, 2006.3.11 */
+	/* free all instance variable symbol such as $1,... */
 	for(scan = rhs; scan; scan = scan->next) {
 		parser_remove_ident(eng, (nel_symbol *)scan->symbol->v );
 	}
@@ -696,7 +690,7 @@ rel_rhs_block
 	/* of rhs we have just parsed, and lhs left on the stack top, the fact*/
 	/* is very important for production parsing  */
 	/**********************************************************************/
-	/* free all instance variable symbol such as $1,..., wyong, 2006.3.11 */
+	/* free all instance variable symbol such as $1,... */
 	for(scan = rhs; scan; scan = scan->next) {
 		parser_remove_ident(eng, (nel_symbol *)scan->symbol->v );
 	}
@@ -728,7 +722,7 @@ REL rhs {
 	eng->parser->append_pt = &(eng->parser->stmts);
 	eng->parser->break_target = eng->parser->continue_target = NULL;
 	eng->parser->prog_unit = NULL;
-	eng->parser->last_stmt = eng->parser->stmts;	//wyong, 2006.3.10 
+	eng->parser->last_stmt = eng->parser->stmts;
 
 } block {
 
@@ -788,12 +782,11 @@ ident_expr {
 
 	/**********************************************************************/
 	/* create an new RHS with symbol, and link it to previous RHS list, */
-	/* increase the offset , wyong, 205.3.24 			     */
+	/* increase the offset . 		  			     */
 	/**********************************************************************/
 	nel_malloc(this, 1, struct nel_RHS );
 	this->symbol = symbol;
 
-	//wyong, 2006.6.14 
 	this->filename = eng->parser->filename;
 	this->line = eng->parser->line;
 
@@ -812,7 +805,7 @@ ident_expr {
 	/* use nel_expr_update_dollar to update symbol 's expr, it does :  */
 	/* change $n in expr to $(n - rhs->offset + 1 );  	      */
 	/**********************************************************************/
-	if(nel_expr_update_dollar(eng, (union nel_EXPR *)symbol->value, 0, /* bugfix, wyong, 2006.8.29 */  1 - rhs->offset) < 0 ){
+	if(nel_expr_update_dollar(eng, (union nel_EXPR *)symbol->value, 0, 1 - rhs->offset) < 0 ){
 		parser_fatal_error(eng, "evt expr update dollar error!\n");
 	}
 
@@ -855,16 +848,13 @@ event
 	nel_debug ({ parser_trace (eng, "ident_expr -> event nel_T_LPAREN expression nel_NTRP_RPAREN *\n"); });
 	parser_pop_expr (eng, expr);
 
-	//added by zhangbin, 2006-6-16
 	nel_type* expr_type;
 	expr_type = eval_expr_type(eng, expr);
 	if(!expr_type)
 		parser_stmt_error(eng, "illegal expr");
-	//end
 
 	parser_pop_symbol(eng, old);	
 
-	/* wyong, 2006.4.27 */
 	if( old == eng->emptySymbol) {
 		parser_warning(eng, "empty shouldn't have an expression, ignore!");
 		symbol = old;	
@@ -883,12 +873,12 @@ event
 
 		symbol=event_symbol_alloc(eng, old->name,  old->type, 
 			0, //NOTE,NOTE,NOTE, event with expr can't as lhs, so we
-			   // can simply set _isolate flag to zero, wyong, 2006.3.11 	
+			   // can simply set _isolate flag to zero 	
 			old->class, expr);
 
 		symbol->_pid = old->_pid;
 		symbol->_parent = old->_parent;
-		symbol->v = old->v;	//wyong, 2006.3.13 
+		symbol->v = old->v;
 
 	}
 
@@ -923,7 +913,6 @@ ident{
 		parser_stmt_error (eng, "can not use link in production");
 	}
 
-	/* wyong, 2006.6.1 */
 	type = symbol->type->event.descriptor;
 	if(eng->parser->rhs_cnt == 0)
 		sprintf(vname, "$$");
@@ -942,7 +931,7 @@ ident{
 	/* can save a lot of memory usage */
 	/**********************************************************************/
 	
-	retval->aux.event = nel_event_alloc(eng);	//added by zhangbin, 2006-7-21
+	retval->aux.event = nel_event_alloc(eng);
 	//nel_malloc(retval->aux.event, 1, struct nel_EVENT);
 
 	
@@ -952,7 +941,7 @@ ident{
 	/**********************************************************************/
 	retval->_pid = retval->id;
 
-	retval->_parent = retval;	//bugfix, wyong, 2005.11.7 
+	retval->_parent = retval;
 	retval->_cyclic = 0;
 	retval->_flag = 0;
 	//retval->_nodelay = 0;
@@ -961,16 +950,16 @@ ident{
 	retval->_deep = 0;
 	retval->_state = -1;
 
-	retval->_isolate = symbol->_isolate;	//wyong, 2006.3.9 
+	retval->_isolate = symbol->_isolate;
 
 
 
 	/**********************************************************************/
-	/* push the retval to semantic stack, so this variable can be seen */
-	/* within expr or stmt , wyong, 2006.3.11  */
+	/* push the retval to semantic stack, so this variable can be seen    */
+	/* within expr or stmt 						      */
 	/**********************************************************************/
 	parser_insert_ident (eng, retval);
-	symbol->v = (int) retval;
+	symbol->v = (char *) retval; 
 
 	/**********************************************************************/
 	/* push the retval to parse stack */
@@ -1012,7 +1001,6 @@ dec_specs declarator pre_formals formal_dec_list post_formals block {
 		nel_global_def (eng, function->name, function->type, nel_static_C_token (function->class), (char *) (eng->parser->stmts), 0);
 		
 
-		//wyong, 20230803 
 		//if ( comp_compile_func(eng, function) < 0 ) {
 		if (create_classify_func(eng, function) < 0 ) { 
 			parser_fatal_error (eng, "error in compiling %s\n", function->name );
@@ -1043,7 +1031,6 @@ declarator pre_formals formal_dec_list post_formals block {
 		/**********************************************/
 		nel_global_def (eng, function->name, function->type, nel_static_C_token (function->class), (char *) (eng->parser->stmts), 0);
 	
-		//wyong, 20230803 
 		//if ( comp_compile_func(eng, function) < 0 ) {
 		if (create_classify_func(eng, function) < 0 ) { 
 			parser_fatal_error (eng, "error in compiling %s\n", function->name );
@@ -1381,14 +1368,13 @@ empty {
 		eng->parser->append_pt = &(eng->parser->stmts);
 		eng->parser->break_target = eng->parser->continue_target = NULL;
 		eng->parser->prog_unit = function;
-		eng->parser->last_stmt = eng->parser->stmts;	//wyong, 2006.3.10
+		eng->parser->last_stmt = eng->parser->stmts;
 
 		/***********************************************/
 		/* now scan throught the formal args, creating */
 		/* a declaration stmt struct for each arg.     */
 		/***********************************************/
 
-		/* wyong , 2004.6.17 */
 		//if (compile_level == 0) {
 		func_type = function->type;
 		for (scan = func_type->function.args; (scan != NULL); scan = scan->next) {
@@ -1641,7 +1627,7 @@ dec_specs nel_T_SEMI {
 		parser_pop_token (eng, stor_class);
 	}
 }/* |
-		for predefined C variable initialization, wyong,2004.11.10 
+		//for predefined C variable initialization
 		init_dec_list nel_T_SEMI {
 		   nel_debug ({ parser_trace (eng, "dec_stmt->init_dec_list nel_T_SEMI\n\n"); });
 		}
@@ -1706,7 +1692,6 @@ initializer {
 		parser_pop_expr(eng, expr);
 		parser_pop_symbol(eng, symbol);
 
-		//bugfix, wyong, 2006.4.30 
 		if ( symbol!=NULL && symbol->initialized == 0){
 			nel_dec_init(eng, symbol, expr);
 		}
@@ -1882,7 +1867,6 @@ dec_specs2 stor_cls_spec {
 		parser_pop_token (eng, new_class);
 		parser_top_token (eng, old_class, 1);
 		if (old_class != /*NULL*/ 0 ) {
-			/* wyong, 2006.6.2 */
 			if((old_class != nel_T_ATOM || old_class!= nel_T_EVENT) 
 			&& (new_class == nel_T_ATOM || new_class==nel_T_EVENT)){
 				parser_warning (eng, "extra storage class specifier %N ignored", old_class);
@@ -2626,7 +2610,6 @@ s_u_dcltor_list nel_T_COMMA s_u_dcltor {
 		parser_pop_member (eng, new_member);
 		parser_top_member (eng, end, 1);		/* get end list */
 
-		//added by zhangbin, 2006-5-16
 		//make sure every member has different name, otherwise error
 		nel_member *temp_member;
 		parser_top_member(eng, temp_member, 2);
@@ -2642,7 +2625,6 @@ s_u_dcltor_list nel_T_COMMA s_u_dcltor {
 			}
 			temp_member = temp_member->next;
 		}
-		//end
 		
 		end->next = new_member;
 		parser_tush_member (eng, new_member, 1);	/* new end list */
@@ -2659,23 +2641,18 @@ s_u_dcltor {
 			parser_tush_member (eng, new_member, 1); /* get start list */
 			parser_tush_member (eng, new_member, 2); /* get end list   */
 		} else {
-			//added by zhangbin, 2006-5-16
 			//make sure every member has different name, otherwise error
 			nel_member *temp_member;
 			parser_top_member(eng, temp_member, 2);
-			while(temp_member)
-			{
-				if(temp_member == NULL || temp_member->symbol == NULL)
-				{
+			while(temp_member) {
+				if(temp_member == NULL || temp_member->symbol == NULL) {
 					parser_stmt_error(eng, "illegal member", temp_member);
 				}
-				if(strcmp(temp_member->symbol->name, new_member->symbol->name) == 0)//error
-				{
+				if(strcmp(temp_member->symbol->name, new_member->symbol->name) == 0) {
 					parser_stmt_error(eng, "illegal member name", temp_member);
 				}
 				temp_member = temp_member->next;
 			}
-			//end
 			end->next = new_member;
 			parser_tush_member (eng, new_member, 1); /* new end list */
 		}
@@ -3388,10 +3365,8 @@ pre_dec indirect_dec {
 				{
 					register unsigned_int dims;
 					register int m;
-					//added by zhangbin, 2006-6-27
 					int val_len;
 					parser_pop_integer(eng, val_len);
-					//end
 					parser_pop_integer (eng, dims);
 
 #ifdef NEL_PURE_ARRAYS
@@ -3493,7 +3468,6 @@ pre_dec indirect_dec {
 							register nel_symbol *bound_sym = NULL;
 							
 							if ((bound_expr = lb_expr ) != NULL ){
-								/* wyong, 2006.4.30 */
 								bound_sym =  intp_eval_expr_2(eng, bound_expr);
 							}
 
@@ -3532,7 +3506,6 @@ pre_dec indirect_dec {
 							
 
 							if((bound_expr = ub_expr ) != NULL ){
-								/* wyong, 2006.4.30 */
 								bound_sym =  intp_eval_expr_2(eng, bound_expr);
 
 							}	
@@ -3582,9 +3555,7 @@ pre_dec indirect_dec {
 						/* the base type must be integral, so don't    */
 						/* bother calling parser_resolve_type on it        */
 						/***********************************************/
-						//added by zhangbin, 2006-6-23
 						//int val_len = type->array.val_len;
-						//end
 						type = nel_type_alloc (eng, 
 							nel_D_ARRAY, 
 							(ub - lb + 1 ) 
@@ -3592,9 +3563,7 @@ pre_dec indirect_dec {
 							type->simple.alignment, 
 							1, 0,	type, 
 						nel_int_type, 1, lb, 1, ub);
-						//added by zhangbin, 2006-6-23
 						type->array.val_len = val_len;
-						//end
 
 #endif
 
@@ -3915,7 +3884,7 @@ direct_dec nel_T_LBRACK dim_bd_list nel_T_RBRACK {
 		parser_pop_name (eng, name);
 		parser_pop_type (eng, type);
 		parser_pop_integer (eng, n);
-		parser_push_integer(eng, 0);	//added by zhangbin, 2006-6-23
+		parser_push_integer(eng, 0);
 		parser_push_D_token (eng, nel_D_ARRAY);
 		parser_push_integer (eng, n + 1);
 		parser_push_type (eng, type);
@@ -3942,7 +3911,7 @@ direct_dec nel_T_LBRACK nel_T_RBRACK {
 		parser_push_expr (eng, NULL);	/* ub		*/
 		parser_push_integer (eng, 0);	/* ub not known	*/
 		parser_push_integer (eng, 1);	/* single dim	*/
-		parser_push_integer(eng, 1);	//added by zhangbin, 2006-6-23
+		parser_push_integer(eng, 1);	
 		parser_push_D_token (eng, nel_D_ARRAY);
 		parser_push_integer (eng, n + 1);
 		parser_push_type (eng, type);
@@ -4259,7 +4228,7 @@ param_list nel_T_COMMA nel_T_ELLIPSIS {
 			/******************************************/
 			register nel_list *scan = start;
 			for (; (scan != NULL); (scan = scan->next)) {
-				register nel_symbol *symbol = scan->symbol; //bugfix, wyong, 2006.3.1 
+				register nel_symbol *symbol = scan->symbol;
 				nel_debug ({
 					if ((symbol == NULL) || (symbol->type == NULL)) {
 						   parser_fatal_error (eng, "(param_type_list->param_list #2): bad formal\n%1S", symbol) ;
@@ -5328,7 +5297,7 @@ for_stmt {
 goto_stmt {
 	nel_debug ({ parser_trace (eng, "stmt2->goto_stmt\n\n"); });
 }|
-*/	//modified by zhangbin, 2006-6-2
+*/	
 if_stmt {
 	nel_debug ({ parser_trace (eng, "stmt2->if_stmt\n\n"); });
 }|
@@ -5336,7 +5305,7 @@ if_stmt {
 label_stmt {
 	nel_debug ({ parser_trace (eng, "stmt2->label_stmt\n\n"); });
 }|
-*/	//modified by zhangbin, 2006-6-2
+*/	
 return_stmt {
 		  nel_debug ({ parser_trace (eng, "stmt2->return_stmt\n\n"); });
 	  }|
@@ -5393,7 +5362,7 @@ nel_T_LBRACE {
 				*(eng->parser->append_pt) = target;
 			}
 			eng->parser->append_pt = &(target->target.next);
-			eng->parser->last_stmt = target;	//wyong, 2006.3.10 
+			eng->parser->last_stmt = target;
 		}
 
 		/******************************************/
@@ -5597,7 +5566,7 @@ nel_T_LBRACE {
 				*(eng->parser->append_pt) = target;
 			}
 			eng->parser->append_pt = &(target->target.next);
-			eng->parser->last_stmt = target;   //wyong, 2006.3.10
+			eng->parser->last_stmt = target; 
 		}
 	}
 }
@@ -5634,13 +5603,11 @@ nel_T_BREAK nel_T_SEMI {
 			parser_error (eng, "break not within loop");
 		} else
 		{
-			//modified by zhangbin, 2006-5-20
 			nel_stmt *break_stmt;
 			break_stmt = nel_stmt_alloc(eng, nel_S_BREAK, eng->parser->filename, eng->parser->line, eng->parser->break_target);
 			if(eng->parser->continue_target->gen.type == nel_S_TARGET)
 				break_stmt->goto_stmt.type = nel_S_GOTO;		
 			append_stmt (break_stmt, &(break_stmt->goto_stmt.next));
-			//end
 		}
 	}
 };
@@ -5662,13 +5629,11 @@ nel_T_CONTINUE nel_T_SEMI {
 			parser_error (eng, "continue not within loop");
 		} else
 		{
-			//modified by zhangbin, 2006-5-20
 			nel_stmt *goto_stmt;
 			goto_stmt = nel_stmt_alloc(eng, nel_S_CONTINUE, eng->parser->filename, eng->parser->line, eng->parser->continue_target);
 			if(eng->parser->continue_target->gen.type == nel_S_TARGET)
 				goto_stmt->goto_stmt.type = nel_S_GOTO;
 			append_stmt (goto_stmt, &(goto_stmt->goto_stmt.next));
-			//end
 		}
 	}
 };
@@ -5740,30 +5705,26 @@ nel_T_DO {
 		register nel_stmt *end_target;
 		register nel_stmt *if_stmt;
 		parser_pop_expr (eng, cond);
-		//added by zhangbin, 2006-5-25
 		nel_type* expr_type;
 		expr_type = eval_expr_type(eng, cond);
 		if(!expr_type)
 			parser_stmt_error(eng, "cannot evaluate condition expression type");
 		if(!nel_numerical_D_token(expr_type->simple.type) && expr_type->simple.type != nel_D_POINTER)
 			parser_stmt_error(eng, "scalar expression needed as condition");
-		//end
 		parser_pop_stmt (eng, begin_target);
 		parser_pop_stmt (eng, cond_target);
 		parser_pop_stmt (eng, end_target);
 		if (eng->parser->append_pt != NULL) {
 			*(eng->parser->append_pt) = cond_target;
 		}
-		//modified by zhangbin, 2006-5-20
 		nel_stmt* jmp_stmt;
 		jmp_stmt = nel_stmt_alloc(eng, nel_S_GOTO, eng->parser->filename, eng->parser->line, begin_target);
 		if_stmt = nel_stmt_alloc (eng, nel_S_BRANCH, eng->parser->filename, eng->parser->line, eng->parser->level, cond, jmp_stmt, end_target);
 		end_target->target.line = eng->parser->line;
-		//end
 		cond_target->target.next = if_stmt;
 		eng->parser->append_pt = &(end_target->target.next);
 
-		eng->parser->last_stmt = end_target; //wyong, 2006.3.10 
+		eng->parser->last_stmt = end_target;
 
 		parser_pop_stmt (eng, eng->parser->continue_target);
 		parser_pop_stmt (eng, eng->parser->break_target);
@@ -5783,27 +5744,19 @@ expression nel_T_SEMI {
 		register nel_expr *expr;
 		register nel_stmt *stmt;
 		parser_pop_expr (eng, expr);
-		//added by zhangbin, 2006-6-26
-		if(nel_O_asgn_expr(expr->gen.opcode) && expr->binary.left->gen.opcode==nel_O_SYMBOL && expr->binary.left->symbol.symbol->class == nel_C_CONST)
-		{
+		if(nel_O_asgn_expr(expr->gen.opcode) && expr->binary.left->gen.opcode==nel_O_SYMBOL && expr->binary.left->symbol.symbol->class == nel_C_CONST) {
 			parser_stmt_error(eng, "illegal lhs of assignment operator");
 		}
 		if(expr->gen.opcode==nel_O_PRE_DEC || expr->gen.opcode==nel_O_PRE_INC ||
-			expr->gen.opcode==nel_O_POST_DEC || expr->gen.opcode==nel_O_POST_INC)
-		{
-			if(expr->unary.operand->gen.opcode==nel_O_SYMBOL && expr->unary.operand->symbol.symbol->class==nel_C_CONST)
-			{
+			expr->gen.opcode==nel_O_POST_DEC || expr->gen.opcode==nel_O_POST_INC) {
+			if(expr->unary.operand->gen.opcode==nel_O_SYMBOL && expr->unary.operand->symbol.symbol->class==nel_C_CONST) {
 				parser_stmt_error(eng, "illegal lhs of ++ or -- operator");
 			}
 		}
-		//end	
 		
-		//added by zhangbin, 2006-5-25, to check expr
-		if(!eval_expr_type(eng, expr))
-		{
+		if(!eval_expr_type(eng, expr)) {
 			parser_stmt_error(eng, "illegal expression");
 		}
-		//end
 
 
 		stmt = nel_stmt_alloc (eng, nel_S_EXPR, eng->parser->filename,
@@ -5869,7 +5822,6 @@ nel_T_FOR nel_T_LPAREN opt_expr nel_T_SEMI opt_expr nel_T_SEMI opt_expr nel_T_RP
 		parser_pop_expr (eng, cond);
 		parser_pop_expr (eng, init);
 #if 0
-		//added by zhangbin, 2006-5-20
 		nel_stmt *init_stmt = NULL;
 		nel_stmt *cond_target = NULL;
 		nel_stmt *if_stmt = NULL;
@@ -5884,17 +5836,14 @@ nel_T_FOR nel_T_LPAREN opt_expr nel_T_SEMI opt_expr nel_T_SEMI opt_expr nel_T_RP
 		}
 		cond_target = nel_stmt_alloc(eng, nel_S_TARGET, "cond_target", eng->parser->line, eng->parser->level, NULL);
 		append_stmt(cond_target, &(cond_target->target.next));
-		if(!cond)
-		{
+		if(!cond) {
 			cond_expr = nel_expr_alloc(eng, nel_O_SYMBOL, NULL);
 			cond_expr->symbol.symbol = nel_static_symbol_alloc(eng, NULL, nel_signed_int_type, NULL, nel_C_CONST, 0, nel_L_NEL, eng->parser->level);
 			cond_expr->symbol.symbol->value = nel_static_value_alloc(eng, sizeof(signed int), nel_alignment_of(signed int));
 			*((signed int*)(cond_expr->symbol.symbol->value)) = 1;
 			
 		}
-		//added by zhangbin, 2006-5-25
-		else
-		{
+		else {
 			nel_type* expr_type;
 			expr_type = eval_expr_type(eng, cond);
 			if(!expr_type)
@@ -5902,7 +5851,6 @@ nel_T_FOR nel_T_LPAREN opt_expr nel_T_SEMI opt_expr nel_T_SEMI opt_expr nel_T_RP
 			if(!nel_numerical_D_token(expr_type->simple.type) && expr_type->simple.type != nel_D_POINTER)
 				parser_stmt_error(eng, "scalar expression needed as condition");
 		}
-		//end
 
 		end_target = nel_stmt_alloc(eng, nel_S_TARGET, "end_target", eng->parser->line, eng->parser->level, NULL);
 		if_stmt = nel_stmt_alloc(eng, nel_S_BRANCH, "if_stmt", eng->parser->level, eng->parser->level, cond_expr, NULL, end_target);
@@ -5924,13 +5872,10 @@ nel_T_FOR nel_T_LPAREN opt_expr nel_T_SEMI opt_expr nel_T_SEMI opt_expr nel_T_RP
 		parser_push_stmt(eng, inc_target);
 		parser_push_stmt(eng, inc_stmt);
 		parser_push_stmt(eng, end_target);
-		//end
 #else
 		
 		register nel_stmt *for_stmt;
-		//added by zhangbin, 2006-6-15
-		if(cond)
-		{
+		if(cond) {
 			nel_type *cond_type;
 			cond_type = eval_expr_type(eng, cond);
 			if(!cond_type)
@@ -5938,24 +5883,19 @@ nel_T_FOR nel_T_LPAREN opt_expr nel_T_SEMI opt_expr nel_T_SEMI opt_expr nel_T_RP
 			if(!nel_numerical_D_token(cond_type->simple.type) && cond_type->simple.type != nel_D_POINTER)
 				parser_stmt_error(eng, "scalar expression needed as condition");
 		}
-		//end
 		for_stmt = nel_stmt_alloc (eng, nel_S_FOR, eng->parser->filename,eng->parser->line, eng->parser->level, init, cond, inc, NULL);
 		append_stmt (for_stmt, &(for_stmt->for_stmt.body));
-		//added by zhangbin, 2006-6-15
 		parser_push_stmt(eng, eng->parser->break_target);
 		parser_push_stmt(eng, eng->parser->continue_target);
 		eng->parser->break_target=for_stmt;
 		eng->parser->continue_target = for_stmt;
-		//end
 		parser_push_stmt (eng, for_stmt);
-		//end
 #endif
 	}
 } block {
 	nel_debug ({ parser_trace (eng, "for_stmt->nel_T_FOR nel_T_LPAREN opt_expr nel_T_SEMI opt_expr nel_T_SEMI opt_expr nel_T_RPAREN stmt\n\n"); });
 	{
 #if 0
-//added by zhangbin, 2006-5-20
 		nel_stmt *cond_target = NULL;
 		nel_stmt *if_stmt = NULL;
 		nel_stmt *inc_target = NULL;
@@ -5976,16 +5916,14 @@ nel_T_FOR nel_T_LPAREN opt_expr nel_T_SEMI opt_expr nel_T_SEMI opt_expr nel_T_RP
 		append_stmt(jmp_stmt, &(if_stmt->branch.next));
 		parser_pop_stmt(eng, eng->parser->break_target);
 		parser_pop_stmt(eng, eng->parser->continue_target);
-//end add
 	
 #else	
-//commited by zhangbin, 2006-5-20
 		register nel_stmt *for_stmt;
 		parser_pop_stmt(eng, for_stmt);
 		parser_pop_stmt(eng, eng->parser->continue_target);
 		parser_pop_stmt(eng, eng->parser->break_target);
 		eng->parser->append_pt = &(for_stmt->for_stmt.next);
-		eng->parser->last_stmt = for_stmt;	//wyong, 2006.3.10
+		eng->parser->last_stmt = for_stmt;
 #endif
 	}
 };
@@ -6044,14 +5982,12 @@ nel_T_IF nel_T_LPAREN expression nel_T_RPAREN {
 		register nel_stmt *if_stmt;
 		parser_pop_expr (eng, cond);
 		
-		//added by zhangbin, 2006-5-25
 		nel_type* expr_type;
 		expr_type = eval_expr_type(eng, cond);
 		if(!expr_type)
 			parser_stmt_error(eng, "cannot evaluate condition expression type");
 		if(!nel_numerical_D_token(expr_type->simple.type) && expr_type->simple.type != nel_D_POINTER)
 			parser_stmt_error(eng, "scalar expression needed as condition");
-		//end
 
 		if_stmt = nel_stmt_alloc (eng, nel_S_BRANCH, eng->parser->filename, eng->parser->line, eng->parser->level, cond, NULL, NULL);
 		append_stmt (if_stmt, &(if_stmt->branch.true_branch));
@@ -6091,18 +6027,16 @@ empty {
 		/**********************************************************/
 		register nel_stmt *if_stmt;
 
-		//bugfix, wyong, 2006.4.29 
 		//end_target = nel_stmt_alloc (eng, nel_S_TARGET, eng->parser->filename, eng->parser->line, eng->parser->level, NULL);
 		parser_pop_stmt (eng, if_stmt);
 
-		//bugfix, wyong, 2006.4.29
 		if_stmt->branch.false_branch = NULL;
 		if (eng->parser->append_pt != NULL) {
 			*(eng->parser->append_pt) = NULL;
 		}
 
 		eng->parser->append_pt = &(if_stmt->branch.next);
-		eng->parser->last_stmt = if_stmt;	//wyong, 2006.3.10
+		eng->parser->last_stmt = if_stmt;
 
 	}
 }|
@@ -6140,7 +6074,6 @@ nel_T_ELSE {
 		/**********************************************************/
 		register nel_stmt *if_stmt;
 
-		//bugfix, wyong, 2006.4.29 
 		//end_target = nel_stmt_alloc (eng, nel_S_TARGET, eng->parser->filename, eng->parser->line, eng->parser->level, NULL);
 		parser_pop_stmt (eng, if_stmt);
 		if (eng->parser->append_pt != NULL)
@@ -6148,9 +6081,9 @@ nel_T_ELSE {
 			*(eng->parser->append_pt) = NULL; //end_target;
 		}
 		eng->parser->append_pt = &(if_stmt->branch.false_branch);
-		eng->parser->last_stmt = if_stmt;	//wyong, 2006.3.10
+		eng->parser->last_stmt = if_stmt;
 		
-		parser_push_stmt (eng, if_stmt);	//bugfix, wyong, 2006.3.18
+		parser_push_stmt (eng, if_stmt);
 	}
 } block {
 	nel_debug ({ parser_trace (eng, "else_part->nel_T_ELSE stmt\n\n"); });
@@ -6163,7 +6096,7 @@ nel_T_ELSE {
 		}
 
 		eng->parser->append_pt = &(if_stmt->branch.next);
-		eng->parser->last_stmt 	= if_stmt;  //wyong, 2006.3.13
+		eng->parser->last_stmt 	= if_stmt; 
 
 	}
 }|
@@ -6172,7 +6105,6 @@ nel_T_ELSE {
 
 	{
 		register nel_stmt *if_stmt;
-		//bugfix, wyong, 2006.4.29 
 		//end_target = nel_stmt_alloc (eng, nel_S_TARGET, eng->parser->filename, eng->parser->line, eng->parser->level, NULL);
 		parser_pop_stmt (eng, if_stmt);
 		if (eng->parser->append_pt != NULL)
@@ -6180,9 +6112,9 @@ nel_T_ELSE {
 			*(eng->parser->append_pt) = NULL; //end_target;
 		}
 		eng->parser->append_pt = &(if_stmt->branch.false_branch);
-		eng->parser->last_stmt = if_stmt;	//wyong, 2006.3.10
+		eng->parser->last_stmt = if_stmt;
 		
-		parser_push_stmt (eng, if_stmt);	//bugfix, wyong, 2006.3.18
+		parser_push_stmt (eng, if_stmt);
 	}
 } if_stmt {
 	nel_debug ({ parser_trace (eng, "else_part->nel_T_ELSE stmt\n\n"); });
@@ -6195,7 +6127,7 @@ nel_T_ELSE {
 		}
 
 		eng->parser->append_pt = &(if_stmt->branch.next);
-		eng->parser->last_stmt 	= if_stmt;  //wyong, 2006.3.13
+		eng->parser->last_stmt 	= if_stmt; 
 
 	}
 };
@@ -6239,21 +6171,16 @@ return_stmt:
 		  /********************************************/
 		  {
 #if 1
-		  		//added by zhangbin, 2006-5-26
-				if(eng->parser->prog_unit)
-				{
+				if(eng->parser->prog_unit) {
 					if( !eng->parser->prog_unit->type ||
 						eng->parser->prog_unit->type->simple.type != nel_D_FUNCTION ||
-						!eng->parser->prog_unit->type->function.return_type)
-					{
+						!eng->parser->prog_unit->type->function.return_type) {
 						parser_fatal_error(eng, "function return type NULL");
 					}
-					if(eng->parser->prog_unit->type->function.return_type->simple.type != nel_D_VOID)
-					{
+					if(eng->parser->prog_unit->type->function.return_type->simple.type != nel_D_VOID) {
 						parser_stmt_error(eng, "illegal expr: you should return a value");
 					}
 				}
-				//end
 #endif
 			  register nel_stmt *stmt = nel_stmt_alloc (eng, nel_S_RETURN,
 										eng->parser->filename, eng->parser->line, NULL, NULL);
@@ -6271,30 +6198,24 @@ return_stmt:
 			  register nel_stmt *stmt;
 			  parser_pop_expr (eng, expr);
 #if 1
-			   	//added by zhangbin, 2006-5-26
 				nel_type *return_type;
 				return_type = eval_expr_type(eng, expr);
 				if(!return_type)
 					parser_stmt_error(eng, "illegal expr: illegal return expression");
 				
-				if(eng->parser->prog_unit)
-				{
+				if(eng->parser->prog_unit) {
 					if(	!eng->parser->prog_unit->type ||
 						eng->parser->prog_unit->type->simple.type != nel_D_FUNCTION ||
-						!eng->parser->prog_unit->type->function.return_type)
-					{
+						!eng->parser->prog_unit->type->function.return_type) {
 						parser_fatal_error(eng, "funtion return type NULL");
 					}
-					if(eng->parser->prog_unit->type->function.return_type->simple.type == nel_D_VOID)
-					{
+					if(eng->parser->prog_unit->type->function.return_type->simple.type == nel_D_VOID) {
 						parser_stmt_error(eng, "illegal expr: no value should be returned");
 					}
-					else if(!is_asgn_compatible(eng, eng->parser->prog_unit->type->function.return_type, return_type))
-					{
+					else if(!is_asgn_compatible(eng, eng->parser->prog_unit->type->function.return_type, return_type)) {
 						parser_stmt_error(eng, "illegal expr: return incompatible value");
 					}
 				}
-			   	//end
 #endif
 			  stmt = nel_stmt_alloc (eng, nel_S_RETURN, eng->parser->filename,
 									 eng->parser->line, expr, NULL);
@@ -6341,16 +6262,13 @@ nel_T_WHILE nel_T_LPAREN expression nel_T_RPAREN {
 		register nel_expr *cond;
 		parser_pop_expr (eng, cond);
 		
-		//added by zhangbin, 2006-5-25
 		nel_type* expr_type;
 		expr_type = eval_expr_type(eng, cond);
 		if(!expr_type)
 			parser_stmt_error(eng, "cannot evaluate condition expression type");
 		if(!nel_numerical_D_token(expr_type->simple.type) && expr_type->simple.type != nel_D_POINTER)
 			parser_stmt_error(eng, "scalar expression needed as condition");
-		//end
 #if 0		
-		//BUG FIXED, zhangbin, 2006-5-19
 		nel_stmt *if_stmt;
 		nel_stmt *cond_target;
 		nel_stmt *end_target;
@@ -6365,9 +6283,7 @@ nel_T_WHILE nel_T_LPAREN expression nel_T_RPAREN {
 		parser_push_stmt(eng, end_target);
 		eng->parser->continue_target = cond_target;
 		eng->parser->break_target = if_stmt->branch.false_branch;
-		//end
 #else	
-		//commet by zhangbin, 2006-5-19
 		register nel_stmt *while_stmt;
 		while_stmt = nel_stmt_alloc(eng, nel_S_WHILE, eng->parser->filename, eng->parser->line,  eng->parser->level, cond, NULL);
 		append_stmt (while_stmt, &(while_stmt->while_stmt.body));
@@ -6376,23 +6292,19 @@ nel_T_WHILE nel_T_LPAREN expression nel_T_RPAREN {
 		eng->parser->break_target = while_stmt;
 		eng->parser->continue_target = while_stmt;
 		parser_push_stmt (eng, while_stmt);
-		//end, 2006-5-19
 #endif
 	}
 } block {
 	nel_debug ({ parser_trace (eng, "while_stmt->nel_T_WHILE nel_T_LPAREN expression nel_T_RPAREN {} stmt\n\n"); });
 	{
 #if 1
-		//commet by zhangbin, 2006-5-19
 		register nel_stmt *while_stmt;
 		parser_pop_stmt (eng, while_stmt);
 		parser_pop_stmt(eng, eng->parser->continue_target);
 		parser_pop_stmt(eng, eng->parser->break_target);
 		eng->parser->append_pt = &(while_stmt->while_stmt.next);
-		eng->parser->last_stmt = while_stmt;	//wyong, 2006.3.10
-		//end
+		eng->parser->last_stmt = while_stmt;
 #else
-		//added by zhangbin, 2006-5-19
 		nel_stmt *cond_target;
 		nel_stmt *if_stmt;
 		nel_stmt *jmp_target;
@@ -6407,7 +6319,6 @@ nel_T_WHILE nel_T_LPAREN expression nel_T_RPAREN {
 		parser_pop_stmt(eng, eng->parser->continue_target);
 		parser_pop_stmt(eng, eng->parser->break_target);
 		eng->parser->last_stmt = if_stmt;
-		//end
 #endif 
 	}
 };
@@ -6565,7 +6476,7 @@ binary_expr nel_T_UPARROW binary_expr {
 }|
 binary_expr nel_T_BAR binary_expr {
 	nel_debug ({ parser_trace (eng, "binary_expr->binary_expr nel_T_BAR binary_expr\n\n"); });
-	binary_op_acts (nel_O_BIT_OR); /* bugfix, wyong, 2004.10.14 */
+	binary_op_acts (nel_O_BIT_OR); 
 }|
 binary_expr nel_T_DAMPER binary_expr {
 	nel_debug ({ parser_trace (eng, "binary_expr->binary_expr nel_T_DAMPER binary_expr\n\n"); });
@@ -6577,7 +6488,6 @@ binary_expr nel_T_DBAR binary_expr {
 }|
 
 binary_expr nel_T_TILDE { eng->parser->want_regexp = 1; } extend_regexp_expr {
-	/* wyong, 2006.6.22 */
 	register nel_symbol *symbol, *func, *tag;
 	register nel_expr   *extend = NULL, 
 			    *data, *pattern; 
@@ -6593,14 +6503,13 @@ binary_expr nel_T_TILDE { eng->parser->want_regexp = 1; } extend_regexp_expr {
 	parser_pop_expr(eng, pattern);
 	parser_pop_expr(eng, data);	/* end of arg list */
 
-	/* set nocase flag from extend regexp flag, wyong, 2006.6.25  */
+	/* set nocase flag from extend regexp flag  */
 	if(extend) {
 		if( (symbol = extend->symbol.symbol ) != NULL )	{
 			register char *p = symbol->value;
 			register char c;
 			while((c = *p) != '\0') {
 				switch (c) {
-					//modified by zhangbin to add pcre option 's', 'm', 2006-11-9
 					case 'i': 
 						pcre_flag |= PCRE_CASELESS; 
 						break;
@@ -6610,7 +6519,6 @@ binary_expr nel_T_TILDE { eng->parser->want_regexp = 1; } extend_regexp_expr {
 					case 'm':
 						pcre_flag |= PCRE_MULTILINE;
 						break;
-					//end
 					default:   break;
 				}
 				p++;
@@ -6657,10 +6565,15 @@ binary_expr nel_T_TILDE { eng->parser->want_regexp = 1; } extend_regexp_expr {
 				struct match_info *ms;
 	            
 				func = parser_lookup_ident(eng, "buf_match");
-				ms = match_init(&pattern->symbol.symbol->value, 1, pcre_flag); 
+				ms = match_init((unsigned char **)&pattern->symbol.symbol->value, 1, pcre_flag); 
 				pattern->symbol.symbol->value = nel_static_value_alloc(eng, 
 					sizeof(struct match_info*), nel_alignment_of(struct match_info *));
-				*((unsigned int*)(pattern->symbol.symbol->value)) = (unsigned int)ms;
+
+				//*((unsigned int*)(pattern->symbol.symbol->value)) = (unsigned int)ms;
+				*((struct match_info **)(pattern->symbol.symbol->value)) = ms;
+
+
+
 				temp_symbol = nel_lookup_symbol("match_info", eng->nel_static_tag_hash,NULL);
 				temp_type = temp_symbol->type->typedef_name.descriptor;
 				temp_type = nel_type_alloc(eng, nel_D_POINTER, sizeof(struct match_info *), 
@@ -6680,17 +6593,24 @@ binary_expr nel_T_TILDE { eng->parser->want_regexp = 1; } extend_regexp_expr {
 		break;
 
 	case nel_O_MEMBER:
-		/*bugfix for lj/20060712.nel, wyong, 2006.7.12 */
 		if( ((symbol = data->member.member) == NULL)
 			|| ((type = symbol->type) == NULL) ) {
-			parser_error(eng, "data (%s) not defined!\n", (data != NULL) ? data : "" );
+			if ( data != NULL ) { 
+				parser_error(eng, "data (%s) not defined!\n",  data );
+			} else {
+				parser_error(eng, "data not defined!\n" );
+			}
 		}
 		goto found_stream;
 
 	case nel_O_SYMBOL:
 		if( ((symbol = data->symbol.symbol) == NULL)
 			|| ((type = symbol->type) == NULL) ) {
-			parser_error(eng, "data (%s) not defined!\n", (data != NULL) ? data : "" );
+			if ( data != NULL ) { 
+				parser_error(eng, "data (%s) not defined!\n", data );
+			} else {
+				parser_error(eng, "data not defined!\n" );
+			}
 		}
 
 found_stream:
@@ -6732,10 +6652,14 @@ found_stream:
 					struct match_info *ms;
 
 					func = parser_lookup_ident(eng, "stream_match");
-					ms = match_init(&pattern->symbol.symbol->value, 1, pcre_flag); 
+					ms = match_init((unsigned char **)&pattern->symbol.symbol->value, 1, pcre_flag); 
 					pattern->symbol.symbol->value = nel_static_value_alloc(eng, 
 						sizeof(struct match_info*), nel_alignment_of(struct match_info *));
-					*((unsigned int*)(pattern->symbol.symbol->value)) = (unsigned int)ms;
+
+					//*((unsigned int*)(pattern->symbol.symbol->value)) = (unsigned int)ms;
+					*((struct match_info **)(pattern->symbol.symbol->value)) = ms;
+
+
 					pattern->symbol.symbol->class = nel_C_CONST;
 					temp_symbol = nel_lookup_symbol("match_info", eng->nel_static_tag_hash,NULL);
 					temp_type = temp_symbol->type->typedef_name.descriptor;
@@ -6767,7 +6691,6 @@ found_stream:
 
 }|
 binary_expr nel_T_EXCLAM_TILDE { eng->parser->want_regexp = 1; } extend_regexp_expr {
-	/* wyong, 2006.7.11 */
 	register nel_symbol *symbol, *func, *tag;
 	register nel_expr   *extend = NULL, 
 			    *data, *pattern; 
@@ -6783,14 +6706,13 @@ binary_expr nel_T_EXCLAM_TILDE { eng->parser->want_regexp = 1; } extend_regexp_e
 	parser_pop_expr(eng, pattern);
 	parser_pop_expr(eng, data);	/* end of arg list */
 
-	/* set nocase flag from extend regexp flag, wyong, 2006.6.25  */
+	/* set nocase flag from extend regexp flag */
 	if(extend) {
 		if( (symbol = extend->symbol.symbol ) != NULL )	{
 			register char *p = symbol->value;
 			register char c;
 			while((c = *p) != '\0') {
 				switch (c) {					
-					//modified by zhangbin to add pcre option 's', 'm', 2006-11-9
 					case 'i': 
 						pcre_flag |= PCRE_CASELESS; 
 						break;
@@ -6800,7 +6722,6 @@ binary_expr nel_T_EXCLAM_TILDE { eng->parser->want_regexp = 1; } extend_regexp_e
 					case 'm':
 						pcre_flag |= PCRE_MULTILINE;
 						break;
-					//end
 					default:   break;
 				}
 				p++;
@@ -6835,7 +6756,7 @@ binary_expr nel_T_EXCLAM_TILDE { eng->parser->want_regexp = 1; } extend_regexp_e
 			break;
 	}
 
-	/* stream or buf? wyong, 2006.6.25 */
+	/* stream or buf? */
 	switch(data->gen.opcode) {
 	case nel_O_ARRAY_RANGE:
 		if(func != NULL ){
@@ -6846,10 +6767,13 @@ binary_expr nel_T_EXCLAM_TILDE { eng->parser->want_regexp = 1; } extend_regexp_e
 				register nel_type *temp_type;   
 				struct match_info *ms;
 				func = parser_lookup_ident(eng, "buf_no_match");
-				ms = match_init(&pattern->symbol.symbol->value, 1, pcre_flag); 
+				ms = match_init((unsigned char **)&pattern->symbol.symbol->value, 1, pcre_flag); 
 				pattern->symbol.symbol->value = nel_static_value_alloc(eng, 
 					sizeof(struct match_info*), nel_alignment_of(struct match_info *));
-				*((unsigned int*)(pattern->symbol.symbol->value)) = (unsigned int)ms;
+
+				//*((unsigned int*)(pattern->symbol.symbol->value)) = (unsigned int)ms;
+				*((struct match_info **)(pattern->symbol.symbol->value)) = ms;
+
 
 				temp_symbol = nel_lookup_symbol("match_info", eng->nel_static_tag_hash,NULL);
 				temp_type = temp_symbol->type->typedef_name.descriptor;
@@ -6869,17 +6793,24 @@ binary_expr nel_T_EXCLAM_TILDE { eng->parser->want_regexp = 1; } extend_regexp_e
 		break;
 
 	case nel_O_MEMBER:
-		/*bugfix for lj/20060712.nel, wyong, 2006.7.12 */
 		if( ((symbol = data->member.member) == NULL)
 			|| ((type = symbol->type) == NULL) ) {
-			parser_error(eng, "data (%s) not defined!\n", (data != NULL) ? data : "" );
+			if (data != NULL ) { 
+				parser_error(eng, "data (%s) not defined!\n", data);
+			} else {
+				parser_error(eng, "data not defined!\n");
+			}
 		}
 		goto found_stream_2;
 
 	case nel_O_SYMBOL:
 		if( ((symbol = data->symbol.symbol) == NULL)
 			|| ((type = symbol->type) == NULL) ) {
-			parser_error(eng, "data (%s) not defined!\n", (data != NULL) ? data : "" );
+			if ( data != NULL ) {
+				parser_error(eng, "data (%s) not defined!\n", data);
+			} else {
+				parser_error(eng, "data not defined!\n" );
+			}
 		}
 
 found_stream_2:
@@ -6960,15 +6891,16 @@ binary_expr nel_T_TILDEEQ { eng->parser->want_regexp = 0; } exact_pattern_expr {
 			struct exact_match_info *ms;
 	    
 			func = parser_lookup_ident(eng, "buf_exact_match");
-			ms = exact_match_init(&pattern->symbol.symbol->value, 
+			ms = exact_match_init((unsigned char **)&pattern->symbol.symbol->value, 
 						1, 0 ); 
 
 
 			pattern->symbol.symbol->value=nel_static_value_alloc(eng, 
 					sizeof(struct exact_match_info*), 
 				nel_alignment_of(struct exact_match_info *));
-			*((unsigned int*)(pattern->symbol.symbol->value)) = 
-							(unsigned int)ms;
+
+			//*((unsigned int*)(pattern->symbol.symbol->value)) = (unsigned int)ms;
+			*((struct exact_match_info **)(pattern->symbol.symbol->value)) = ms;
 
 
 			temp_symbol = nel_lookup_symbol("exact_match_info", 
@@ -6993,14 +6925,22 @@ binary_expr nel_T_TILDEEQ { eng->parser->want_regexp = 0; } exact_pattern_expr {
 	case nel_O_MEMBER:
 		if( ((symbol = data->member.member) == NULL)
 			|| ((type = symbol->type) == NULL) ) {
-			parser_error(eng, "data (%s) not defined!\n", (data != NULL) ? data : "" );
+			if ( data != NULL ) {
+				parser_error(eng, "data (%s) not defined!\n", data );
+			} else {
+				parser_error(eng, "data not defined!\n" );
+			}
 		}
 		goto found_exact_stream;
 
 	case nel_O_SYMBOL:
 		if( ((symbol = data->symbol.symbol) == NULL)
 			|| ((type = symbol->type) == NULL) ) {
-			parser_error(eng, "data (%s) not defined!\n", (data != NULL) ? data : "" );
+			if ( data != NULL ){
+				parser_error(eng, "data (%s) not defined!\n", data );
+			}else {
+				parser_error(eng, "data not defined!\n" );
+			}
 		}
 
 found_exact_stream:
@@ -7024,11 +6964,15 @@ found_exact_stream:
 				//register nel_expr_list *args;
 
 				func = parser_lookup_ident(eng, "stream_exact_match");
-				ms = exact_match_init(&pattern->symbol.symbol->value, 1, 0); 
+				ms = exact_match_init((unsigned char **)&pattern->symbol.symbol->value, 1, 0); 
 				pattern->symbol.symbol->value = nel_static_value_alloc(eng, 
 					sizeof(struct exact_match_info*), 
 					nel_alignment_of(struct exact_match_info *));
-				*((unsigned int*)(pattern->symbol.symbol->value)) = (unsigned int)ms;
+
+				//*((unsigned int*)(pattern->symbol.symbol->value)) = (unsigned int)ms;
+				*((struct exact_match_info **)(pattern->symbol.symbol->value)) = ms;
+
+
 				pattern->symbol.symbol->class = nel_C_CONST;
 				temp_symbol = nel_lookup_symbol("exact_match_info", eng->nel_static_tag_hash,NULL);
 				temp_type = temp_symbol->type->typedef_name.descriptor;
@@ -7094,7 +7038,6 @@ exact_pattern_expr: nel_T_C_STRING {
 
 		name = nel_insert_name (eng, eng->parser->text);
 		size = strlen (name) + 1;
-		//modified by zhangbin, 2006-5-23
 		type = nel_type_alloc (eng, nel_D_ARRAY, size, nel_alignment_of(char), 1, 0, nel_char_type, nel_int_type, 1, 0, 1, size - 1);
 		symbol = nel_static_symbol_alloc (eng, name, type, NULL, nel_C_CONST, 0, nel_L_NEL, 0);
 		symbol->value = name;
@@ -7118,7 +7061,6 @@ regexp_expr: nel_T_REGEXP {
 
 		name = nel_insert_name (eng, eng->parser->text);
 		size = strlen (name) + 1;
-		//modified by zhangbin, 2006-5-23
 		type = nel_type_alloc (eng, nel_D_ARRAY, size, nel_alignment_of(char), 1, 0, nel_char_type, nel_int_type, 1, 0, 1, size - 1);
 		symbol = nel_static_symbol_alloc (eng, name, type, NULL, nel_C_CONST, 0, nel_L_NEL, 0);
 		symbol->value = name;
@@ -7145,7 +7087,6 @@ nel_T_REGEXT {
 
 		name = nel_insert_name (eng, eng->parser->text);
 		size = strlen (name) + 1;
-		//modified by zhangbin, 2006-5-23
 		type = nel_type_alloc (eng, nel_D_ARRAY, size, nel_alignment_of(char), 1, 0, nel_char_type, nel_int_type, 1, 0, 1, size - 1);
 		symbol = nel_static_symbol_alloc (eng, name, type, NULL, nel_C_CONST, 0, nel_L_NEL, 0);
 		symbol->value = name;
@@ -7246,7 +7187,6 @@ nel_T_SIZEOF unary_expr {
 		expr = nel_expr_alloc (eng, nel_O_SIZEOF, NULL, expr);
 
 #if 0
-		/* wyong, 2006.4.12 */
 		symbol = intp_eval_expr_2 (eng, expr);
 		if (symbol->value == NULL) {
 			if (symbol->name == NULL) {
@@ -7255,7 +7195,7 @@ nel_T_SIZEOF unary_expr {
 				parser_stmt_error (eng, "NULL address for %I", symbol);
 			}
 		}
-#else	//added by zhangbin, 2006-5-30
+#else
 		nel_type* expr_type;
 		expr_type = eval_expr_type(eng, expr->type.expr);
 		if(!expr_type)
@@ -7283,7 +7223,6 @@ nel_T_SIZEOF nel_T_LPAREN type_name nel_T_RPAREN {
 		parser_pop_type (eng, type);
 		expr = nel_expr_alloc (eng, nel_O_SIZEOF, type, NULL);
 #if 0
-		/* wyong, 2006.4.12 */
 		symbol = intp_eval_expr_2 (eng, expr);
 		if (symbol->value == NULL) {
 			if (symbol->name == NULL) {
@@ -7292,16 +7231,13 @@ nel_T_SIZEOF nel_T_LPAREN type_name nel_T_RPAREN {
 				parser_stmt_error (eng, "NULL address for %I", symbol);
 			}
 		}
-#else	//added by zhangbin, 2006-5-30
+#else
 		nel_type* expr_type;
 
-		//modified by zhangbin, 2006-6-14
 		//expr_type = eval_expr_type(eng, expr->type.expr);	
 		expr_type = expr->type.type;
-		//end
 
-		if(!expr_type)
-		{
+		if(!expr_type) {
 			parser_stmt_error(eng, "illegal expr");
 		}
 		symbol = nel_static_symbol_alloc(eng, NULL, nel_int_type, nel_static_value_alloc(eng, sizeof(int), nel_alignment_of(int)), nel_C_CONST, 0, nel_L_NEL, eng->parser->level);
@@ -7536,7 +7472,7 @@ postfix_expr nel_T_DMINUS {
 postfix_expr nel_T_LPAREN arg_exp_list nel_T_RPAREN {
 	nel_debug ({ parser_trace (eng, "postfix_expr->postfix_expr nel_T_LPAREN arg_exp_list nel_T_RPAREN\n\n"); });
 	{
-		nel_symbol *symbol;	/* wyong, 2005.6.2 */
+		nel_symbol *symbol;
 		nel_expr *func;
 		nel_expr_list *args;
 		int nargs;
@@ -7544,7 +7480,7 @@ postfix_expr nel_T_LPAREN arg_exp_list nel_T_RPAREN {
 		parser_pop_expr_list (eng, args);	/* end of arg list */
 		parser_pop_expr_list (eng, args);	/* start of arg list */
 		parser_pop_expr (eng, func);
-		symbol = func->symbol.symbol;	/* wyong, 2005.6.2 */
+		symbol = func->symbol.symbol;
 		
 		func = nel_expr_alloc (eng, nel_O_FUNCALL, func, nargs, args);
 
@@ -7632,12 +7568,10 @@ ident {
 #if 0
 			symbol = nel_static_symbol_alloc (eng, name, NULL, NULL, nel_C_NULL, 0, nel_L_NEL, eng->parser->level);
 #else
-			/* wyong, 2006.4.11 */
 			parser_stmt_error (eng, "undeclaration of %s", name);
 #endif
 		}
 
-		/* wyong, 2004.11.10 */
 		if(nel_static_C_token(symbol->class) && symbol->_global) {
 			symbol = symbol->_global;
 		}
@@ -7757,7 +7691,6 @@ nel_T_REGEXP
 		register nel_expr *expr;
 		name = nel_insert_name (eng, eng->parser->text);
 		size = strlen (name) + 1;
-		//modified by zhangbin, 2006-5-23
 		type = nel_type_alloc (eng, nel_D_ARRAY, size, nel_alignment_of(char)/* (char *)*/, 1, 0, nel_char_type, nel_int_type, 1, 0, 1, size - 1);
 		symbol = nel_static_symbol_alloc (eng, name, type, NULL, nel_C_CONST, 0, nel_L_NEL, 0);
 		symbol->value = name;
@@ -7776,7 +7709,6 @@ nel_T_C_STRING {
 
 		name = nel_insert_name (eng, eng->parser->text);
 		size = strlen (name) + 1;
-		//modified by zhangbin, 2006-5-23
 		type = nel_type_alloc (eng, nel_D_ARRAY, size, nel_alignment_of(char)/* (char *)*/, 1, 0, nel_char_type, nel_int_type, 1, 0, 1, size - 1);
 		symbol = nel_static_symbol_alloc (eng, name, type, NULL, nel_C_CONST, 0, nel_L_NEL, 0);
 		symbol->value = name;

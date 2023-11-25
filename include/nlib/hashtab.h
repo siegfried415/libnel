@@ -57,7 +57,7 @@ typedef unsigned short Te_ktype;
 
 typedef struct {
         Te_ktype        te_key;
-	unsigned /*char*/	short	val;	/*bugfix, wyong, 2006.8.30 */
+	unsigned 	short	val;
 } Tab_entry;
 
 #define EPEND                   0x4000

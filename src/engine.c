@@ -9,24 +9,19 @@
 #include <engine.h>
 #include <errors.h>
 
-//wyong, 20230801 
-//#include <intrns.h>
-
-#include <mem.h>
-#include <intp.h>
+#include "mem.h"
+#include "intp.h"
 #include "gen.h"
-
-//added by zhangbin, 2006-7-19, to include XXX_dealloc runtime
 #include "expr.h"
 #include "_stab.h"
 #include "stmt.h"
-
-//wyong, 20230801 
-//#include "comp.h"
-
 #include "type.h"
 #include "sym.h"
-////end
+#include "evt.h" 
+#include "parser.h"
+#include "intrns.h"
+
+//#include "comp.h"
 
 /*****************************************************************************/
 /* nel_R_name () returns the string that is the identifier for <code>, a      */
@@ -58,8 +53,8 @@ char *nel_R_name (register nel_R_token code)
 /* memory allocation should be in a critical section. */
 /******************************************************/
 nel_lock_type nel_malloc_lock = nel_unlocked_state;
-nel_lock_type nel_calloc_lock = nel_unlocked_state;	//added by zhangbin, 2006-10-9
-nel_lock_type nel_realloc_lock = nel_unlocked_state;	//added by zhangbin, 2006-10-9
+nel_lock_type nel_calloc_lock = nel_unlocked_state;	
+nel_lock_type nel_realloc_lock = nel_unlocked_state;
 
 
 /*****************************************************************************/
@@ -69,7 +64,6 @@ nel_lock_type nel_realloc_lock = nel_unlocked_state;	//added by zhangbin, 2006-1
 /*****************************************************************************/
 void nel_init(struct nel_eng *eng )
 {
-	//printf("nel_init begin...\n");
 
 	/**********************************************************/
 	/* don't put the initial flag check in a critical section */
@@ -103,7 +97,6 @@ void nel_init(struct nel_eng *eng )
 		eng->pattern_method = RBM;
 		eng->numStates = 0;
 
-		/* wyong, 2006.4.11 */
 		eng->pseudo_symbol = event_symbol_alloc(eng, "_pseudo", nel_type_alloc(eng, nel_D_EVENT, 0,0,0,0, nel_pointer_type,NULL) , 0, nel_C_NONTERMINAL,NULL);		
 		eng->targetSymbol = event_symbol_alloc(eng, "_target", nel_type_alloc(eng,nel_D_EVENT,0,0,0,0, nel_pointer_type,NULL) , 0, nel_C_NONTERMINAL,NULL);		
 		eng->target_id = eng->targetSymbol->id;
@@ -128,47 +121,34 @@ void nel_init(struct nel_eng *eng )
 
 		}
 
-		//printf("nel_init before nel_lib_init ...\n");
 		nel_ntrn_init (eng);
-		
-		//printf("nel_init after nel_lib_init ...\n");
-		//added by zhangbin, 2006-7-26
-		//wyong, 20230801 
 		//comp_init(eng);
 		gen_init(eng);
-		//end
 
-		//printf("nel_init after gen_init ...\n");
 		eng->init_flag = 1;
+
 		//nel_unlock (&nel_init_lock);
 	}
 
-	//printf("nel_init finished...\n");
 }
 
 struct nel_eng *nel_eng_alloc(void)
 {
 	struct nel_eng *eng;
-
-	//printf("nel_eng_alloc begin...\n"); 
 	nel_malloc(eng, 1, struct nel_eng );
 	if(eng) {
-		//printf("nel_eng_alloc nel malloced ...\n"); 
 		nel_zero(sizeof(struct nel_eng), eng );
-		//printf("nel_eng_alloc nel cleared...\n"); 
 		nel_init( eng );
-		//printf("nel_eng_alloc nel inited ...\n"); 
 	}
 
-//NOTE: move it into eng_init()
+// move it into eng_init()
 #if 0		
-	//if(eng->compile_level > 0) {//wyong, 2006.2.20 
+	//if(eng->compile_level > 0) {
 		comp_init(eng);
 	//}
 
 	gen_init(eng);
 #endif
-	//printf("nel_eng_alloc finished ...\n"); 
 	return eng;
 }
 
@@ -185,39 +165,31 @@ void nel_eng_dealloc(struct nel_eng *eng)
 		}
 	}
 
-	//added by zhangbin, 2006-7-19
 	if(eng->gen)
 		gen_dealloc(eng);
 
-	//wyong, 20230801 
 	//if(eng->comp)
 	//	comp_dealloc(eng);
 
 	if(eng->parser)
 		nel_dealloca(eng->parser); 
 
-	//from evt.c
 	event_dealloc(eng);
 	
-	//from type.c
 	line_dealloc(eng);
 	list_dealloc(eng);
 	type_dealloc(eng);
 	member_dealloc(eng);
 	block_dealloc(eng);
 
-	//from stab.c
 	stabtype_dealloc(eng);
 
-	//from sym.c
 	static_symbol_dealloc(eng);
 	static_name_dealloc(eng);
 	static_value_dealloc(eng);
 	
-	//from stmt.c
 	stmt_dealloc(eng);
 
-	//from expr.c
 	expr_dealloc(eng);
 	expr_list_dealloc(eng);
 	
@@ -229,7 +201,6 @@ void nel_eng_dealloc(struct nel_eng *eng)
 	nel_static_hash_table_dealloc(eng->nel_static_file_hash);
 }
 
-//added by zhangbin, 2006-7-26
 //return: 0 if successfully, otherwise, return -1
 int nel_eng_restart(struct nel_eng *eng)
 {
@@ -257,9 +228,7 @@ int nel_eng_restart(struct nel_eng *eng)
 	unsigned int parser_verbose_level = eng->parser_verbose_level;
 	unsigned int intp_verbose_level = eng->intp_verbose_level;
 
-	//wyong, 20230801 
 	//unsigned int comp_verbose_level = eng->comp_verbose_level;
-
 	unsigned int gen_verbose_level = eng->gen_verbose_level;
 	char *prog_name = eng->prog_name;
 	char **nel_file_name = eng->nel_file_name;
@@ -288,9 +257,7 @@ int nel_eng_restart(struct nel_eng *eng)
 	eng->parser_verbose_level = parser_verbose_level;
 	eng->intp_verbose_level = intp_verbose_level;
 
-	//wyong, 20230801 
 	//eng->comp_verbose_level = comp_verbose_level;
-
 
 	eng->gen_verbose_level = gen_verbose_level;
 	eng->prog_name = prog_name;
@@ -307,4 +274,3 @@ int nel_eng_restart(struct nel_eng *eng)
 	
 	return 0;
 }
-//end

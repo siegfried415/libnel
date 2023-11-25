@@ -2,15 +2,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <engine.h>
-#include <errors.h>
-#include <itemset.h>
-#include <item.h>
-
-//added by zhangbin, 2006-7-17
+#include "engine.h"
+#include "errors.h"
+#include "itemset.h"
+#include "item.h"
+#include "gen.h"
 #include "mem.h"
+
 extern nel_lock_type nel_malloc_lock;
-//end
 
 int item_merge(struct lritem *src, struct lritem *dst)
 {
@@ -39,21 +38,15 @@ struct lritem *lookup_item(struct nel_LIST **list, struct dprod *dp)
 
 struct lritem *item_alloc(struct nel_eng *eng, struct dprod *dp, struct termset *ts)
 {
-	//modified by zhangbin, 2006-7-17, malloc=>nel_malloc
-#if 1
 	struct lritem *it;
 	nel_malloc(it, 1, struct lritem);
-#else
-	struct lritem *it = (struct lritem *) malloc(sizeof(struct lritem));
-#endif
-	//end, 2006-7-17
 
 	if(!it) {
 		gen_error(eng, "nel_item_alloc: malloc error!\n");	
 		return NULL;
 	}
 
-	nel_zero(sizeof(struct lritem), it);//added by zhangbin, 2006-7-25
+	nel_zero(sizeof(struct lritem), it);
 	it->dprod = dp;
 	termset_init(&it->lookahead, eng->numTerminals);
 	if(ts) {
@@ -69,7 +62,6 @@ void emit_item(struct nel_eng *eng,FILE *fp, struct lritem *lri)
 		emit_dprod(eng, fp, lri->dprod, lri->offset); fprintf(fp, "\n");
 		//putputLookahead(eng, fp, &lri->lookahead);
 
-		/*NOTE,NOTE,NOTE, just for debug, wyong, 2006.3.2 */
 		//emit_termset(eng, fp, &lri->lookahead );
 	}
 

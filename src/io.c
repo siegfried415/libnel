@@ -12,13 +12,14 @@
 #include <stdarg.h>
 #include <setjmp.h>
 
-#include <engine.h>
-#include <errors.h>
-#include <io.h>
-#include <type.h>
-#include <intp.h>
-#include <lex.h>
+#include "engine.h"
+#include "errors.h"
+#include "io.h"
+#include "type.h"
+#include "intp.h"
+#include "lex.h"
 #include "mem.h"
+#include "_stab.h" 
 
 //int verbose_level = 0;
 //unsigned_int nel_silent = 0;	/* repress diagnostic messages		*/
@@ -114,7 +115,7 @@ void nel_pretty_print (FILE *file, register nel_type *type, char *obj, int inden
 
 		case nel_D_LONG_DOUBLE:
 			tab (indent);
-			fprintf (file, "%lf", *((long_double *) obj));
+			fprintf (file, "%Lf", *((long_double *) obj));
 			break;
 
 		case nel_D_FUNCTION:
@@ -122,7 +123,7 @@ void nel_pretty_print (FILE *file, register nel_type *type, char *obj, int inden
 			/* just print its address of a function. */
 			/*****************************************/
 			tab (indent);
-			fprintf (file, "0x%x\n", (unsigned_int) obj);
+			fprintf (file, "0x%p\n", (void *) obj);
 			break;
 
 		case nel_D_VOID:
@@ -131,7 +132,7 @@ void nel_pretty_print (FILE *file, register nel_type *type, char *obj, int inden
 			/* so print it in hexadecimal.         */
 			/***************************************/
 			tab (indent);
-			fprintf (file, "0x%x", (unsigned_int) obj);
+			fprintf (file, "0x%p", (void *) obj);
 			break;
 
 		case nel_D_ENUM:
@@ -374,7 +375,7 @@ void nel_do_print (FILE *file, char *control_string, va_list args)
 	scan = control_string;
 	while (*scan != '\0') {
 
-		/* wyong, 2004.11.8
+		/* 
 		       if (*scan != '%') {
 		          fprintf (file, "%c", *(scan++));
 		       }
@@ -695,7 +696,7 @@ void nel_do_print (FILE *file, char *control_string, va_list args)
 				/* don't specify args or advance arg pointer on default */
 				/********************************************************/
 			default:
-				fprintf (file, control);
+				fprintf (file, "%s", control);
 				break;
 			}
 			nel_dealloca (control);
@@ -840,8 +841,8 @@ char *rel2abs(const char *path, const char *base, char *result, int size)
 	}
 	bp = base + length;
 
-	/* if be end with a nel filename, strip it, wyong 2004.5.31 */
-	if(/*!strcmp(bp-4, ".nel") zhangbin 2006-6-9*/ 1 ) {
+	/* if be end with a nel filename, strip it  */
+	if(/*!strcmp(bp-4, ".nel") */ 1 ) {
 		while(*(bp-1) != '/') {
 			bp--;
 		}

@@ -1,8 +1,3 @@
-/*
- * optimize.h
- * $Id: opt.h,v 1.3 2006/05/25 06:18:24 wyong Exp $
- */
-
 #ifndef __OPTIMIZE_H
 #define __OPTIMIZE_H
 
@@ -39,7 +34,7 @@ struct exp_node {
 
 	boolean	val;
 	nel_expr *expr;	/* I needn't re compute the expr, 
-				   not for optimize logic, wyong  */
+				   not for optimize logic */
 	struct exp_node *prev;
 	struct exp_node *next;
 };
@@ -86,5 +81,11 @@ int do_optimize(struct nel_eng *eng, struct prior_node **priority, int idcount,
 int_list_t *in_use_id_list, void *SymbolID, nel_symbol *result,nel_stmt **stmt_head, nel_stmt **stmt_tail);
 
 
+int optimize_class_func_stmt_alloc(	struct nel_eng *eng, 
+					struct nel_LIST *sym_list, 
+					int count, 
+					nel_symbol *result, 
+					nel_stmt **stmt_head, 
+					nel_stmt **stmt_tail) ; 
 
 #endif

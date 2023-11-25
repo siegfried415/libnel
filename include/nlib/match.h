@@ -29,7 +29,7 @@ struct ret_sym {
 
 
 struct exact_match_info {
-	int id;      //yanf, 2006.12.1
+	int id;  
        	struct rule_list *rlist;
 #ifdef	USE_ACBM
 	struct ac_bm_tree *acbm;
@@ -42,7 +42,7 @@ struct exact_match_info {
 };
 
 struct match_info {
-	int id;      //yanf, 2006.12.1
+	int id; 
 #ifdef	USE_PCRE
 	pcre *re;
 	pcre_extra *extra;
@@ -53,8 +53,12 @@ struct match_info {
 #endif
 	int *retsyms;
 	int retnum;
-	//struct hashtab *offset_table;	
 };
+
+struct match_info *match_init(unsigned char **array, int array_size, int options);
+struct exact_match_info *exact_match_init(unsigned char **array, int array_size, int options);
+int nel_match_init(struct nel_eng *eng); 
+
 
 #endif	//#ifndef MATCH_H
 

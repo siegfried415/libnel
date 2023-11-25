@@ -1,32 +1,20 @@
-/*
- * stream.c
- * $Id: stream.c,v 1.13 2006/12/06 06:42:34 zhangb Exp $
- */
-
 #include <stdlib.h>
 #include <string.h>
 
 #include "engine.h"
 #include "errors.h"
-
-//wyong, 20230810 
-//#include "stream.h"
 #include "nlib/stream.h"
-
-
 #include "sym.h"
-
-//added by zhangbin, 2006-7-17
 #include "mem.h"
+
 extern nel_lock_type nel_malloc_lock;
-//end
 
 struct stream_state *alloc_stream_state(void)    
 {	
 	struct stream_state *state;	
 	state = (struct stream_state *)calloc(1, sizeof(struct stream_state));	
 	if (!state) {		
-		gen_error(NULL, "calloc error \n");		
+		fprintf(stderr, "calloc error \n");		
 		return NULL;	
 	}	
 	//fprintf(stderr, "alloc_stream_state: calloc pointer=%p\n", state);	
@@ -88,12 +76,12 @@ int nel_stream_put(struct stream *stream, char *data, int len )
 {
 	int copy_len = 0;
 	if (!stream) {
-		gen_error(NULL, "stream hasn't been allocated yet \n");
+		fprintf(stderr, "stream hasn't been allocated yet \n");
 		return -1;
 	}
 
 	if (stream->buf == NULL ) {
-		gen_error(NULL, "stream hasn't allocated buf\n");
+		fprintf(stderr, "stream hasn't allocated buf\n");
 		return -1;	
 	}
 
@@ -177,7 +165,7 @@ struct stream *nel_stream_alloc(int size)
 
 	nel_calloc(s, 1, struct stream);
 	if ( s	== NULL){
-		gen_error(NULL, "nel_malloc error \n");
+		fprintf(stderr, "nel_malloc error \n");
 		return NULL;
 	}
 
@@ -186,7 +174,7 @@ struct stream *nel_stream_alloc(int size)
 
 	nel_calloc(s->buf, size, char);
 	if(!s->buf){
-		gen_error(NULL, "malloc error\n");
+		fprintf(stderr, "malloc error\n");
 		return NULL;
 	}
 	
@@ -203,17 +191,11 @@ nel_symbol *nel_stream_alloc_func_alloc(struct nel_eng *eng)
 	nel_symbol *symbol;
 	nel_list *args;
 
-	//wyong, 20230809 
-	//printf("nel_stream_alloc_func_alloc(10) ...\n" ); 
 
 	symbol = nel_static_symbol_alloc(eng, nel_insert_name(eng,"size"), nel_int_type, NULL, nel_C_FORMAL, nel_lhs_type(nel_int_type), nel_L_C, 1);
 
-	//wyong, 20230809 
-	//printf("nel_stream_alloc_func_alloc(20) ...\n" ); 
 
-	args = nel_list_alloc(eng, 0, symbol, /* args */ NULL); /* wyong, 2006.10.14 */
-
-	//printf("nel_stream_alloc_func_alloc(30) ...\n" ); 
+	args = nel_list_alloc(eng, 0, symbol, NULL); 
 
 	symbol = nel_lookup_symbol("stream", eng->nel_static_tag_hash,NULL);
 
@@ -224,20 +206,12 @@ nel_symbol *nel_stream_alloc_func_alloc(struct nel_eng *eng)
 	//}
 
 	type = symbol->type->typedef_name.descriptor;
-
-	//printf("nel_stream_alloc_func_alloc(50) ...\n" ); 
 	type = nel_type_alloc(eng, nel_D_POINTER, sizeof(struct stream *), nel_alignment_of(struct stream *), 0,0,type);
-
-	//printf("nel_stream_alloc_func_alloc(60) ...\n" ); 
 	type = nel_type_alloc (eng, nel_D_FUNCTION, 0, 0, 0, 0, 0, 0, type, args, NULL, NULL);
-	//printf("nel_stream_alloc_func_alloc(70) ...\n" ); 
-
 	symbol = nel_static_symbol_alloc (eng, nel_insert_name(eng, "nel_stream_alloc"), type, (char *) nel_stream_alloc, nel_C_COMPILED_FUNCTION, nel_lhs_type(type), nel_L_C, 0);
-	//printf("nel_stream_alloc_func_alloc(80) ...\n" ); 
 
 	nel_insert_symbol (eng, symbol, eng->nel_static_ident_hash);
 
-	//printf("nel_stream_alloc_func_alloc(90) ...\n" ); 
 	return symbol;
 }
 
@@ -250,21 +224,17 @@ int stream_init(struct nel_eng *eng)
 	symbol = nel_lookup_symbol("nel_stream_alloc", eng->nel_static_ident_hash, eng->nel_static_location_hash, NULL);
 	if(symbol == NULL) {
 		symbol = nel_stream_alloc_func_alloc(eng);	
-		//wyong, 20230809 
 		//printf("stream_init, nel_stream_alloc successfully alloced !\n" ); 
 	}else if(symbol->value == NULL) {
 		symbol->value = (char *) nel_stream_alloc;
-		//wyong, 20230809 
 		//printf("stream_init, set earily inserted symbol value with nel_stream_alloc !\n" ); 
 
 	}else if(symbol->value != (char *)nel_stream_alloc) {
 		//nel_warning(eng, "the earily inserted symbol value have difference value with nel_stream_alloc !\n");
-		//wyong, 20230809 
 		//printf("stream_init,the earily inserted symbol value have difference value with nel_stream_alloc !\n" ); 
 	}
 	else {
 		/* nel_stream_alloc was successfully inserted */
-		//wyong, 20230809 
 		//printf("stream_init,nel_stream_alloc was inserted already \n" ); 
 	}
 
@@ -283,7 +253,6 @@ int stream_init(struct nel_eng *eng)
 		/* nel_stream_put was successfully inserted */
 	}
 
-	//wyong, 20230809 
 	//printf("stream_init,nel_stream_put was successfully inserted \n" ); 
 
 	/* nel_stream_free stuff */
@@ -301,7 +270,6 @@ int stream_init(struct nel_eng *eng)
 		//printf( "nel_stream_free was successfully inserted !\n" );
 	}
 
-	//wyong, 20230809 
 	//printf("stream_init,nel_stream_free was successfully inserted \n" ); 
 
 	return 0;

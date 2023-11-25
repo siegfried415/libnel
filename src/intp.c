@@ -9,6 +9,7 @@
 #include <elf.h>
 #include <setjmp.h>
 #include <string.h>
+#include <math.h>
 
 #include "engine.h"
 #include "errors.h"
@@ -19,13 +20,11 @@
 #include "intp.h"
 #include "lex.h"
 #include "mem.h"
+#include "evt.h" 
+#include "dec.h" 
 
-//added by zhangbin, 2006-5-18
-#include <math.h>
 #define INTP_ZERO 1e-7
 
-//wyong, 20230803 
-//inline 
 int check_intp_zero(struct nel_eng *eng, nel_type *type, char *right)
 {
 	if(!type || !right)
@@ -80,7 +79,6 @@ int check_intp_zero(struct nel_eng *eng, nel_type *type, char *right)
 			return 0;
 	}
 }
-//end
 
 void intp_trace (struct nel_eng *eng, char *message, ...)
 {
@@ -118,11 +116,7 @@ void intp_diagnostic(struct nel_eng *eng, char *message, ...)
 		/*******************************************/
 		nel_lock (&nel_error_lock);
 
-		sprintf(buffer, message, args);
-		write(2, buffer, strlen(buffer));
-		fprintf (stderr, "\n");
-
-		//nel_do_print (stdout, message, args);
+		nel_do_print (stderr, message, args);
 
 		/*************************/
 		/* exit critical section */
@@ -387,7 +381,6 @@ nel_symbol *intp_lookup_ident(struct nel_eng *eng, char *name)
 {
 	register nel_symbol *symbol = NULL;	
 
-	/*bugfix, wyong, 2005.10.26 */
 	symbol = nel_lookup_symbol(name, eng->intp->dyn_ident_hash,
 			   eng->nel_static_ident_hash,
 			   eng->intp->dyn_location_hash,
@@ -789,8 +782,6 @@ void intp_apply (struct nel_eng  *eng, char *retval, nel_type *type, char (*func
 		case 2:
 			*((signed_int *) retval) = (*((signed_int (*) ()) func)) (
 										   args[0], args[1]);
-			//wyong, 20230821 
-			//*((int **)args), *((int **)args+1));
 			break;
 		case 3:
 			*((signed_int *) retval) = (*((signed_int (*) ()) func)) (
@@ -2173,8 +2164,6 @@ void intp_apply (struct nel_eng  *eng, char *retval, nel_type *type, char (*func
 /* intp_dyn_value_alloc () allocates a space of <bytes> bytes in the dynamic   */
 /* value table on an alignment-byte boundary, and returns a pointer to it.   */
 /*****************************************************************************/
-//wyong, 20230907
-//char *intp_dyn_value_alloc (struct nel_eng *eng, register unsigned_int bytes, register unsigned_int alignment)
 char *intp_dyn_value_alloc (struct nel_eng *eng, unsigned_int bytes, unsigned_int alignment)
 {
 	register char *retval;
@@ -2279,7 +2268,6 @@ nel_symbol *intp_dyn_symbol_alloc (struct nel_eng *eng, char *name, nel_type *ty
 	return (retval);
 }
 
-//wyong, 20230907 
 nel_symbol *intp_eval_call_2(struct nel_eng *eng, nel_symbol *func, int nargs, nel_stack *arg_start )
 {
 	/********************************************/
@@ -2316,9 +2304,7 @@ nel_symbol *intp_eval_call_2(struct nel_eng *eng, nel_symbol *func, int nargs, n
 	nel_malloc(eng->intp, 1, struct eng_intp );
 	intp_init (eng, "", NULL, NULL, NULL, 0);
 
-	//added by zhangbin, 2006-5-22
 	eng->intp->ret_type = func->type->function.return_type;
-	//end
 
 	/**********************/
 	/* call the evaluator */
@@ -2335,14 +2321,13 @@ nel_symbol *intp_eval_call_2(struct nel_eng *eng, nel_symbol *func, int nargs, n
 	/* and return.                                         */
 	/*******************************************************/
 	//retval = eng->intp->error_ct;
-	retval = nel_symbol_dup(eng, retval);  /*bugfix, wyong, 2006.4.12 */
+	retval = nel_symbol_dup(eng, retval); 
 	intp_dealloc (eng);
 
 	nel_debug ({ intp_trace (eng, "] exiting intp_eval ()\nerror_ct = %d\n\n", eng->intp->error_ct); });
 	
-	/*bugfix, nel_dealloca before nel_debug, wyong, 2005.12.8 */
 	nel_dealloca(eng->intp);
-	//eng->intp = NULL;	//added by zhangbin, 2006-7-21
+	//eng->intp = NULL;	
 	
 	if(old_intp != NULL){
 		eng->intp = old_intp;
@@ -2360,7 +2345,6 @@ nel_symbol *intp_eval_call_2(struct nel_eng *eng, nel_symbol *func, int nargs, n
 /* and then applies the value of <func>, the starting address of a function, */
 /* to the arguments.                                                         */
 /*****************************************************************************/
-//register int nargs -> int args, wyong, 20230816 
 nel_symbol *intp_eval_call (struct nel_eng *eng, nel_symbol *func, int nargs, nel_stack *arg_start)
 {
 	char (* address) ();
@@ -2376,27 +2360,18 @@ nel_symbol *intp_eval_call (struct nel_eng *eng, nel_symbol *func, int nargs, ne
 	int intrin = 0;	/* flag signalling intrinsic routine	*/
 	int intp = 0;	/* flag signalling interpreted routine	*/
 
-	//added by zhangbin, 2006-6-29
 	char *v;
 	nel_type *t;
-	//end
 
 	nel_debug ({ intp_trace (eng, "entering intp_eval_call () [\neng = 0x%x\nfunc =\n%1Snargs = %d\narg_start = 0x%x\n\n", eng, func, nargs, arg_start); });
 
 	
-	nel_debug ({//modified by zhangbin, 2006-5-24
+	nel_debug ({
 	   if ((func == NULL) || (func->type == NULL) || (func->value == NULL)) {
-
-//#if 0
-//		   intp_fatal_error (eng, "(intp_eval_call #1): bad function\n%1S", func) ;
-//#else
-		   /* wyong, 2006.9.26 */
 		   if(func && func->name)
 			   intp_fatal_error (eng, "bad function %s", func->name) ;
 		   else 
 			   intp_fatal_error (eng, "bad function") ;
-//#endif
-
 	   }
 	})
 	;
@@ -2488,10 +2463,8 @@ nel_symbol *intp_eval_call (struct nel_eng *eng, nel_symbol *func, int nargs, ne
 		retval = intp_dyn_symbol_alloc (eng, NULL, return_type,
 			   ((return_type->simple.type != nel_D_VOID) ? intp_dyn_value_alloc (eng, return_type->simple.size, return_type->simple.alignment) : NULL), nel_C_RESULT, 0, nel_L_NEL, eng->intp->level);
 
-//added by zhangbin, 2006-6-29
-v=retval->value;
-t=retval->type;
-//end
+		v=retval->value;
+		t=retval->type;
 		
 		/******************************************/
 		/* we don't do the type coercions exaclty */
@@ -2499,7 +2472,7 @@ t=retval->type;
 		/******************************************/
 		if (type->function.new_style) {
 
-#if 0		/*NOTE,NOTE,NOTE, wyong, 2006.3.1 */	
+#if 0		
 			if (func->name == NULL) {
 				intp_warning (eng, "default parameter passing used");
 			} else {
@@ -2532,8 +2505,7 @@ t=retval->type;
 		/* to interpreted function through nel_func_call ().   */
 		/************************************************/
 		if (intp ) {
-			/* the first parameter of nel_func_call is eng , 
-			wyong, 2005.9.30 */
+			/* the first parameter of nel_func_call is eng */
 			intp_inc_int_size (char *);
 
 			intp_inc_int_size (char *);
@@ -2583,7 +2555,6 @@ t=retval->type;
 			case nel_D_UNSIGNED_SHORT_INT:
 				intp_inc_int_size (int);
 
-				//wyong, 20230821 
 				arg_size = nel_align_offset (arg_size, 
 						nel_alignment_of (char *)); 
 				break;
@@ -2595,7 +2566,6 @@ t=retval->type;
 			case nel_D_UNSIGNED_LONG:
 			case nel_D_UNSIGNED_LONG_INT:
 				intp_inc_int_size (long);
-				//wyong, 20230821 
 				arg_size = nel_align_offset (arg_size, 
 						nel_alignment_of (char *)); 
 				break;
@@ -2608,7 +2578,6 @@ t=retval->type;
 			case nel_D_FLOAT:
 			case nel_D_LONG_FLOAT:
 				intp_inc_fp_size (double);
-				//wyong, 20230821 
 				arg_size = nel_align_offset (arg_size, 
 						nel_alignment_of (char *)); 
 				break;
@@ -2618,7 +2587,6 @@ t=retval->type;
 				/************************************/
 			case nel_D_LONG_DOUBLE:
 				intp_inc_fp_size (long_double);
-				//wyong, 20230821 
 				arg_size = nel_align_offset (arg_size, 
 						nel_alignment_of (char *)); 
 				break;
@@ -2634,7 +2602,6 @@ t=retval->type;
 			case nel_D_LONG_COMPLEX_FLOAT:
 				intp_inc_fp_size (double);
 				intp_inc_fp_size (double);
-				//wyong, 20230821 
 				arg_size = nel_align_offset (arg_size, 
 						nel_alignment_of (char *)); 
 				break;
@@ -2646,7 +2613,6 @@ t=retval->type;
 				intp_inc_fp_size (long_double);
 				intp_inc_fp_size (long_double);
 
-				//todo, wyong, 20230821 
 				arg_size = nel_align_offset (arg_size, 
 						nel_alignment_of (char *)); 
 				break;
@@ -2699,7 +2665,7 @@ t=retval->type;
 				/* (can happen on all machines except CRAY).              */
 				/**********************************************************/
 				arg_size = nel_align_offset (arg_size, actual->type->simple.alignment);
-				arg_size += actual->type->simple.size;	//modified by zhangbin, 2006-5-11, '=' => '+=' to increase total size of arg list
+				arg_size += actual->type->simple.size;	
 				arg_size = nel_align_offset (arg_size, sizeof (char *));
 
 				break;
@@ -2757,7 +2723,6 @@ t=retval->type;
 		/* pointer to the function symbol.              */
 		/************************************************/
 		if (intp) {
-			/* wyong, 2005.9.30 */	
 			ap = nel_align_ptr (ap, nel_alignment_of (char *));
 			*((char **) ap) = (char *) (eng);
 			ap += sizeof (char *);
@@ -2775,11 +2740,11 @@ t=retval->type;
 			register nel_symbol *actual;
 			actual = stack_scan->symbol;
 			nel_debug ({
-						   if ((actual == NULL) || (actual->type == NULL)) {
-						   intp_fatal_error (eng, "(intp_eval_call #6): bad actual\n%1S", actual)
-							   ;
-						   }
-					   });
+				   if ((actual == NULL) || (actual->type == NULL)) {
+				   intp_fatal_error (eng, "(intp_eval_call #6): bad actual\n%1S", actual)
+					   ;
+				   }
+			   });
 
 			switch (actual->type->simple.type) {
 
@@ -2799,7 +2764,6 @@ t=retval->type;
 			case nel_D_SIGNED_SHORT:
 			case nel_D_SIGNED_SHORT_INT:
 				intp_put_int_arg (nel_signed_int_type, actual->type, actual->value);
-				//wyong, 20230821 
 				ap = nel_align_ptr (ap, nel_alignment_of (char *));
 
 				break;
@@ -2810,7 +2774,6 @@ t=retval->type;
 			case nel_D_UNSIGNED_SHORT:
 			case nel_D_UNSIGNED_SHORT_INT:
 				intp_put_int_arg (nel_unsigned_int_type, actual->type, actual->value);
-				//wyong, 20230821 
 				ap = nel_align_ptr (ap, nel_alignment_of (char *));
 
 				break;
@@ -2820,7 +2783,6 @@ t=retval->type;
 			case nel_D_SIGNED_LONG:
 			case nel_D_SIGNED_LONG_INT:
 				intp_put_int_arg (nel_signed_long_int_type, actual->type, actual->value);
-				//wyong, 20230821 
 				ap = nel_align_ptr (ap, nel_alignment_of (char *));
 
 				break;
@@ -2828,7 +2790,6 @@ t=retval->type;
 			case nel_D_UNSIGNED_LONG:
 			case nel_D_UNSIGNED_LONG_INT:
 				intp_put_int_arg (nel_unsigned_long_int_type, actual->type, actual->value);
-				//wyong, 20230821 
 				ap = nel_align_ptr (ap, nel_alignment_of (char *));
 
 				break;
@@ -2841,7 +2802,6 @@ t=retval->type;
 			case nel_D_FLOAT:
 			case nel_D_LONG_FLOAT:
 				intp_put_fp_arg (nel_double_type, actual->type, actual->value);
-				//wyong, 20230821 
 				ap = nel_align_ptr (ap, nel_alignment_of (char *));
 
 				break;
@@ -2851,7 +2811,6 @@ t=retval->type;
 				/************************************/
 			case nel_D_LONG_DOUBLE:
 				intp_put_fp_arg (nel_long_double_type, actual->type, actual->value);
-				//wyong, 20230821 
 				ap = nel_align_ptr (ap, nel_alignment_of (char *));
 
 				break;
@@ -2864,7 +2823,6 @@ t=retval->type;
 			case nel_D_COMPLEX_FLOAT:
 				intp_put_fp_arg (nel_double_type, nel_float_type, actual->value);
 				intp_put_fp_arg (nel_double_type, nel_float_type, actual->value + sizeof (float));
-				//wyong, 20230821 
 				ap = nel_align_ptr (ap, nel_alignment_of (char *));
 
 				break;
@@ -2877,7 +2835,6 @@ t=retval->type;
 			case nel_D_LONG_COMPLEX_FLOAT:
 				intp_put_fp_arg (nel_double_type, nel_double_type, actual->value);
 				intp_put_fp_arg (nel_double_type, nel_double_type, actual->value + sizeof (double));
-				//wyong, 20230821 
 				ap = nel_align_ptr (ap, nel_alignment_of (char *));
 
 				break;
@@ -2888,7 +2845,6 @@ t=retval->type;
 			case nel_D_LONG_COMPLEX_DOUBLE:
 				intp_put_fp_arg (nel_long_double_type, nel_long_double_type, actual->value);
 				intp_put_fp_arg (nel_long_double_type, nel_long_double_type, actual->value + sizeof (long_double));
-				//todo, wyong, 20230821 
 				ap = nel_align_ptr (ap, nel_alignment_of (char *));
 
 				break;
@@ -2914,7 +2870,6 @@ t=retval->type;
 				ap = nel_align_ptr (ap, nel_alignment_of (char *));
 				*((char **) ap) = actual->value;
 
-				//bugfix, int -> char *, wyong, 20230823 
 				ap += sizeof (char *);
 				break;
 
@@ -2954,27 +2909,25 @@ t=retval->type;
 		/* the arguments are set up - apply the function to them      */
 		/* we already know that arg_size is a multiple of sizeof (int)*/
 		/**************************************************************/
-		//wyong, 20230821 
 		//arg_words = arg_size / sizeof (int);
 		arg_words = arg_size / sizeof (char *);
 
 		nel_debug ({
-					   int *arg_scan;
-					   intp_trace (eng, "arg_words = %d\n", arg_words);
-					   intp_trace (eng, "arguments:\n");
-					   for (i = arg_words, arg_scan = ((int *) arg_data) + arg_words - 1; (i > 0); i--, arg_scan--) {
-					   intp_trace (eng, "   0x%x\n", *arg_scan)
-						   ;
-					   }
-					   intp_trace (eng, "\n");
-				   });
+			   int *arg_scan;
+			   intp_trace (eng, "arg_words = %d\n", arg_words);
+			   intp_trace (eng, "arguments:\n");
+			   for (i = arg_words, arg_scan = ((int *) arg_data) + arg_words - 1; (i > 0); i--, arg_scan--) {
+			   intp_trace (eng, "   0x%x\n", *arg_scan)
+				   ;
+			   }
+			   intp_trace (eng, "\n");
+		   });
 
 		if (! intp) {
 			/******************************************************/
 			/*call intp_apply() to do the actual function call. */
 			/*we pass extra parameters on ALLIANT_FX2800.           */
 			/*********************************************************/
-			//(int *)arg_data -> (int **)arg_data , 20230821 
 			intp_apply (eng, retval->value, return_type, address, arg_words, (int **) arg_data);
 
 		} else {
@@ -2984,12 +2937,9 @@ t=retval->type;
 			/* parameters on ALLIANT_FX2800.              */
 			/**********************************************/
 			int nel_retval;
-			//(int *)arg_data -> (int **)arg_data , 20230821 
 			intp_apply (eng, (char *) (&nel_retval), nel_int_type, (char (*)()) nel_func_call, arg_words, (int **) arg_data);
-			//added by zhangbin, 2006-6-29
 			retval->value = v;
 			retval->type = t;
-			//end
 		}
 		nel_dealloca (arg_data);
 	}
@@ -3011,23 +2961,23 @@ void intp_op (struct nel_eng *eng, nel_O_token O_token, nel_type *type, char *re
 	nel_debug ({ intp_trace (eng, "entering intp_op [\neng = 0x%x\nO_token = %O\ntype = \n%1Tresult = 0x%x\nleft = 0x%x\nright = 0x%x\n\n", eng, O_token, type, result, left, right); });
 
 	nel_debug ({
-				   if (type == NULL) {
-				   intp_fatal_error (eng, "(intp_op #1): NULL type")
-					   ;
-				   }
-				   if (result == NULL) {
-				   intp_fatal_error (eng, "(intp_op #2): NULL result")
-					   ;
-				   }
-				   if (nel_unary_O_token (O_token) && ((left == NULL) || (right != NULL))) {
-				   intp_fatal_error (eng, "(intp_op #3): wrong # of operands\nop = %O\nleft = 0x%x\nright = 0x%x", O_token, left, right)
-					   ;
-				   }
-				   if (nel_binary_O_token (O_token) && ((left == NULL) || (right == NULL))) {
-				   intp_fatal_error (eng, "(intp_op #4): wrong # of operands\nop = %O\nleft = 0x%x\nright = 0x%x", O_token, left, right)
-					   ;
-				   }
-			   });
+		   if (type == NULL) {
+		   intp_fatal_error (eng, "(intp_op #1): NULL type")
+			   ;
+		   }
+		   if (result == NULL) {
+		   intp_fatal_error (eng, "(intp_op #2): NULL result")
+			   ;
+		   }
+		   if (nel_unary_O_token (O_token) && ((left == NULL) || (right != NULL))) {
+		   intp_fatal_error (eng, "(intp_op #3): wrong # of operands\nop = %O\nleft = 0x%x\nright = 0x%x", O_token, left, right)
+			   ;
+		   }
+		   if (nel_binary_O_token (O_token) && ((left == NULL) || (right == NULL))) {
+		   intp_fatal_error (eng, "(intp_op #4): wrong # of operands\nop = %O\nleft = 0x%x\nright = 0x%x", O_token, left, right)
+			   ;
+		   }
+	   });
 
 	/*********************************************/
 	/* find the standardized equivalent D_tokens */
@@ -3135,9 +3085,7 @@ void intp_op (struct nel_eng *eng, nel_O_token O_token, nel_type *type, char *re
 			*((double *) result) = (*((double *) left)) + (*((double *) right));
 			break;
 		case nel_O_DIV:
-			//added by zhangbin, to check divide oprand
-			if(check_intp_zero(eng, type, right))
-			{
+			if(check_intp_zero(eng, type, right)) {
 				intp_stmt_error(eng, "divided by zero");
 				break;
 			}
@@ -3207,9 +3155,7 @@ void intp_op (struct nel_eng *eng, nel_O_token O_token, nel_type *type, char *re
 			*((signed_int *) result) = (*((signed_int *) left)) ^ (*((signed_int *) right));
 			break;
 		case nel_O_DIV:
-			//added by zhangbin, to check divide oprand
-			if(check_intp_zero(eng, type, right))
-			{
+			if(check_intp_zero(eng, type, right)) {
 				intp_stmt_error(eng, "divided by zero");
 				break;
 			}
@@ -3228,12 +3174,10 @@ void intp_op (struct nel_eng *eng, nel_O_token O_token, nel_type *type, char *re
 			*((int *) result) = (*((signed_int *) left)) <= (*((signed_int *) right));
 			break;
 		case nel_O_LSHIFT:
-			//added by zhangbin, 2006-5-19
 			if(*((signed int*)right) < 0)
 				intp_warning(eng, "left shift negative bits");
 			else if(type->simple.size < *((signed int *)right))
 				intp_warning(eng, "left shift too many bits");
-			//end
 			*((signed_int *) result) = (*((signed_int *) left)) << (*((signed_int *) right));
 			break;
 		case nel_O_LT:
@@ -3267,12 +3211,10 @@ void intp_op (struct nel_eng *eng, nel_O_token O_token, nel_type *type, char *re
 			*((signed_int *) result) = ++ (*((signed_int *) left));
 			break;
 		case nel_O_RSHIFT:
-			//added by zhangbin, 2006-5-19
 			if(*((signed int*)right) < 0)
 				intp_warning(eng, "right shift negative bits");
 			else if(type->simple.size < *((signed int *)right))
 				intp_warning(eng, "right shift too many bits");
-			//end
 			*((signed_int *) result) = (*((signed_int *) left)) >> (*((signed_int *) right));
 			break;
 		case nel_O_SUB:
@@ -3288,9 +3230,7 @@ void intp_op (struct nel_eng *eng, nel_O_token O_token, nel_type *type, char *re
 			*((float *) result) = (*((float *) left)) + (*((float *) right));
 			break;
 		case nel_O_DIV:
-			//added by zhangbin, to check divide oprand
-			if(check_intp_zero(eng, type, right))
-			{
+			if(check_intp_zero(eng, type, right)) {
 				intp_stmt_error(eng, "divided by zero");
 				break;
 			}
@@ -3384,9 +3324,7 @@ void intp_op (struct nel_eng *eng, nel_O_token O_token, nel_type *type, char *re
 			*((long_double *) result) = (*((long_double *) left)) + (*((long_double *) right));
 			break;
 		case nel_O_DIV:
-			//added by zhangbin, to check divide oprand
-			if(check_intp_zero(eng, type, right))
-			{
+			if(check_intp_zero(eng, type, right)) {
 				intp_stmt_error(eng, "divided by zero");
 				break;
 			}
@@ -3474,9 +3412,7 @@ void intp_op (struct nel_eng *eng, nel_O_token O_token, nel_type *type, char *re
 			*((unsigned_int *) result) = (*((unsigned_int *) left)) ^ (*((unsigned_int *) right));
 			break;
 		case nel_O_DIV:
-			//added by zhangbin, to check divide oprand
-			if(check_intp_zero(eng, type, right))
-			{
+			if(check_intp_zero(eng, type, right)) {
 				intp_stmt_error(eng, "divided by zero");
 				break;
 			}
@@ -3495,12 +3431,10 @@ void intp_op (struct nel_eng *eng, nel_O_token O_token, nel_type *type, char *re
 			*((int *) result) = (*((unsigned_int *) left)) <= (*((unsigned_int *) right));
 			break;
 		case nel_O_LSHIFT:
-			//added by zhangbin, 2006-5-19
 			if(*((signed int*)right) < 0)
 				intp_warning(eng, "left shift negative bits");
 			else if(type->simple.size < *((signed int *)right))
 				intp_warning(eng, "left shift too many bits");
-			//end
 			*((unsigned_int *) result) = (*((unsigned_int *) left)) << (*((unsigned_int *) right));
 			break;
 		case nel_O_LT:
@@ -3534,12 +3468,10 @@ void intp_op (struct nel_eng *eng, nel_O_token O_token, nel_type *type, char *re
 			*((unsigned_int *) result) = ++ (*((unsigned_int *) left));
 			break;
 		case nel_O_RSHIFT:
-			//added by zhangbin, 2006-5-19
 			if(*((signed int*)right) < 0)
 				intp_warning(eng, "right shift negative bits");
 			else if(type->simple.size < *((signed int *)right))
 				intp_warning(eng, "right shift too many bits");
-			//end
 			*((unsigned_int *) result) = (*((unsigned_int *) left)) >> (*((unsigned_int *) right));
 			break;
 		case nel_O_SUB:
@@ -3604,9 +3536,7 @@ void intp_op (struct nel_eng *eng, nel_O_token O_token, nel_type *type, char *re
 			*((signed_long_int *) result) = (*((signed_long_int *) left)) ^ (*((signed_long_int *) right));
 			break;
 		case nel_O_DIV:
-			//added by zhangbin, to check divide oprand
-			if(check_intp_zero(eng, type, right))
-			{
+			if(check_intp_zero(eng, type, right)) {
 				intp_stmt_error(eng, "divided by zero");
 				break;
 			}
@@ -3625,12 +3555,10 @@ void intp_op (struct nel_eng *eng, nel_O_token O_token, nel_type *type, char *re
 			*((int *) result) = (*((signed_long_int *) left)) <= (*((signed_long_int *) right));
 			break;
 		case nel_O_LSHIFT:
-			//added by zhangbin, 2006-5-19
 			if(*((signed int*)right) < 0)
 				intp_warning(eng, "left shift negative bits");
 			else if(type->simple.size < *((signed int *)right))
 				intp_warning(eng, "left shift too many bits");
-			//end
 			*((signed_long_int *) result) = (*((signed_long_int *) left)) << (*((signed_long_int *) right));
 			break;
 		case nel_O_LT:
@@ -3664,12 +3592,10 @@ void intp_op (struct nel_eng *eng, nel_O_token O_token, nel_type *type, char *re
 			*((signed_long_int *) result) = ++ (*((signed_long_int *) left));
 			break;
 		case nel_O_RSHIFT:
-			//added by zhangbin, 2006-5-19
 			if(*((signed_long_int*)right) < 0)
 				intp_warning(eng, "right shift negative bits");
 			else if(type->simple.size < *((signed_long_int *)right))
 				intp_warning(eng, "right shift too many bits");
-			//end
 			*((signed_long_int *) result) = (*((signed_long_int *) left)) >> (*((signed_long_int *) right));
 			break;
 		case nel_O_SUB:
@@ -3697,9 +3623,7 @@ void intp_op (struct nel_eng *eng, nel_O_token O_token, nel_type *type, char *re
 			*((unsigned_long_int *) result) = (*((unsigned_long_int *) left)) ^ (*((unsigned_long_int *) right));
 			break;
 		case nel_O_DIV:
-			//added by zhangbin, to check divide oprand
-			if(check_intp_zero(eng, type, right))
-			{
+			if(check_intp_zero(eng, type, right)) {
 				intp_stmt_error(eng, "divided by zero");
 				break;
 			}
@@ -3718,12 +3642,10 @@ void intp_op (struct nel_eng *eng, nel_O_token O_token, nel_type *type, char *re
 			*((int *) result) = (*((unsigned_long_int *) left)) <= (*((unsigned_long_int *) right));
 			break;
 		case nel_O_LSHIFT:
-			//added by zhangbin, 2006-5-19
 			if(*((signed int*)right) < 0)
 				intp_warning(eng, "left shift negative bits");
 			else if(type->simple.size < *((signed int *)right))
 				intp_warning(eng, "left shift too many bits");
-			//end
 			*((unsigned_long_int *) result) = (*((unsigned_long_int *) left)) << (*((unsigned_long_int *) right));
 			break;
 		case nel_O_LT:
@@ -3757,12 +3679,10 @@ void intp_op (struct nel_eng *eng, nel_O_token O_token, nel_type *type, char *re
 			*((unsigned_long_int *) result) = ++ (*((unsigned_long_int *) left));
 			break;
 		case nel_O_RSHIFT:
-			//added by zhangbin, 2006-5-19
 			if(*((unsigned_long_int*)right) < 0)
 				intp_warning(eng, "right shift negative bits");
 			else if(type->simple.size < *((unsigned_long_int *)right))
 				intp_warning(eng, "right shift too many bits");
-			//end
 			*((unsigned_long_int *) result) = (*((unsigned_long_int *) left)) >> (*((unsigned_long_int *) right));
 			break;
 		case nel_O_SUB:
@@ -3795,8 +3715,8 @@ nel_type *intp_type_unary_op (struct nel_eng *eng, register nel_type *type, regi
 	register nel_type *retval;
 
 	nel_debug ({
-				   intp_trace (eng, "entering intp_type_unary_op [\ntype =\n%1Tintegral = %d\ncmplx = %d\n\n", type, integral, cmplx);
-			   });
+		   intp_trace (eng, "entering intp_type_unary_op [\ntype =\n%1Tintegral = %d\ncmplx = %d\n\n", type, integral, cmplx);
+	   });
 
 	if (type == NULL) {
 		retval = NULL;
@@ -3922,8 +3842,8 @@ signed_x:
 	}
 
 	nel_debug ({
-				   intp_trace (eng, "] exiting intp_type_unary_op\nretval =\n%1T\n", retval);
-			   });
+		   intp_trace (eng, "] exiting intp_type_unary_op\nretval =\n%1T\n", retval);
+	   });
 
 	return (retval);
 }
@@ -3941,15 +3861,15 @@ nel_symbol *intp_eval_unary_op (struct nel_eng *eng, nel_O_token op, register ne
 	nel_symbol *retval;
 
 	nel_debug ({
-				   intp_trace (eng, "entering intp_eval_unary_op [\neng = 0x%x\nop = %O\n\n", eng, op);
-			   });
+		   intp_trace (eng, "entering intp_eval_unary_op [\neng = 0x%x\nop = %O\n\n", eng, op);
+	   });
 
 	nel_debug ({
-				   if ((operand == NULL) || (operand->type == NULL)) {
-				   intp_fatal_error (eng, "(intp_eval_unary_op #1): bad operand operand\n%1S", operand)
-					   ;
-				   }
-			   });
+		   if ((operand == NULL) || (operand->type == NULL)) {
+		   intp_fatal_error (eng, "(intp_eval_unary_op #1): bad operand operand\n%1S", operand)
+			   ;
+		   }
+	   });
 
 	if (operand->value == NULL) {
 		if (operand->name == NULL) {
@@ -3979,11 +3899,11 @@ nel_symbol *intp_eval_unary_op (struct nel_eng *eng, nel_O_token op, register ne
 			intp_stmt_error (eng, "illegal operand of %P", op);
 		}
 		nel_debug ({
-					   if (res_type->simple.size <= 0) {
-					   intp_fatal_error (eng, "(intp_eval_unary_op #2): bad result type\n%1T", res_type)
-						   ;
-					   }
-				   });
+			   if (res_type->simple.size <= 0) {
+			   intp_fatal_error (eng, "(intp_eval_unary_op #2): bad result type\n%1T", res_type)
+				   ;
+			   }
+		   });
 
 		/*****************************************/
 		/* coerce the operand to the result type */
@@ -4001,8 +3921,8 @@ nel_symbol *intp_eval_unary_op (struct nel_eng *eng, nel_O_token op, register ne
 	}
 
 	nel_debug ({
-				   intp_trace (eng, "] exiting intp_eval_unary_op\nretval =\n%1S\n", retval);
-			   });
+		   intp_trace (eng, "] exiting intp_eval_unary_op\nretval =\n%1S\n", retval);
+	   });
 
 	return (retval);
 }
@@ -4021,8 +3941,8 @@ nel_type *intp_type_binary_op (struct nel_eng *eng, register nel_type *type1, re
 	register nel_type *retval;
 
 	nel_debug ({
-				   intp_trace (eng, "entering intp_type_binary_op [\ntype1 =\n%1Ttype2 =\n%1Tintegral = %d\ncmplx = %d\n\n", type1, type2, integral, cmplx);
-			   });
+		   intp_trace (eng, "entering intp_type_binary_op [\ntype1 =\n%1Ttype2 =\n%1Tintegral = %d\ncmplx = %d\n\n", type1, type2, integral, cmplx);
+	   });
 
 	if ((type1 == NULL) || (type2 == NULL)) {
 		retval = NULL;
@@ -4875,11 +4795,8 @@ signed_x_signed:
 		}
 	}
 
-	//added by zhangbin, 2006-5-26
-	if(type1->simple.type == nel_D_POINTER)
-	{
-		switch(type2->simple.type)
-			{
+	if(type1->simple.type == nel_D_POINTER) {
+		switch(type2->simple.type) {
 			case nel_D_CHAR:
 			case nel_D_SIGNED_CHAR:
 			case nel_D_UNSIGNED_CHAR:
@@ -4897,12 +4814,11 @@ signed_x_signed:
 				break;
 			default:
 				retval = NULL;
-			}
+		}
 	}
-	if(type1->simple.type == nel_D_ARRAY)
-	{
-			switch(type2->simple.type)
-			{
+
+	if(type1->simple.type == nel_D_ARRAY) {
+		switch(type2->simple.type) {
 			case nel_D_CHAR:
 			case nel_D_SIGNED_CHAR:
 			case nel_D_UNSIGNED_CHAR:
@@ -4918,13 +4834,11 @@ signed_x_signed:
 				break;
 			default:
 				retval = NULL;
-			}	
+		}	
 	}
 
-	if(type2->simple.type == nel_D_POINTER)
-	{
-		switch(type1->simple.type)
-			{
+	if(type2->simple.type == nel_D_POINTER) {
+		switch(type1->simple.type) {
 			case nel_D_CHAR:
 			case nel_D_SIGNED_CHAR:
 			case nel_D_UNSIGNED_CHAR:
@@ -4943,12 +4857,11 @@ signed_x_signed:
 				break;
 			default:
 				retval = NULL;
-			}
+		}
 	}
-	if(type2->simple.type == nel_D_ARRAY)
-	{
-			switch(type1->simple.type)
-			{
+
+	if(type2->simple.type == nel_D_ARRAY) {
+		switch(type1->simple.type) {
 			case nel_D_CHAR:
 			case nel_D_SIGNED_CHAR:
 			case nel_D_UNSIGNED_CHAR:
@@ -4967,15 +4880,15 @@ signed_x_signed:
 				break;
 			default:
 				retval = NULL;
-			}	
+		}	
 	}
+
 	if(type1 == type2 && nel_s_u_D_token(type1->simple.type))
 		retval = type1;
-	//end
 
 	nel_debug ({
-				   intp_trace (eng, "] exiting intp_type_binary_op\nretval =\n%1T\n", retval);
-			   });
+		   intp_trace (eng, "] exiting intp_type_binary_op\nretval =\n%1T\n", retval);
+	   });
 
 	return (retval);
 }
@@ -5000,17 +4913,17 @@ nel_symbol *intp_eval_binary_op (struct nel_eng *eng, nel_O_token op, register n
 	nel_symbol *retval;
 
 	nel_debug ({
-	intp_trace (eng, "entering intp_eval_binary_op [\neng = 0x%x\nop = %O\n\n", eng, op);
-	});
+		intp_trace (eng, "entering intp_eval_binary_op [\neng = 0x%x\nop = %O\n\n", eng, op);
+		});
 
 	nel_debug ({
-	if ((left == NULL) || (left->type == NULL)) {
-		intp_fatal_error (eng, "(intp_eval_binary_op #1): bad left operand symbol\n%1S", left);
-	}
-	if ((right == NULL) || (right->type == NULL)) {
-		intp_fatal_error (eng, "(intp_eval_binary_op #2): bad right operand symbol\n%1S", right);
-	}
-	});
+		if ((left == NULL) || (left->type == NULL)) {
+			intp_fatal_error (eng, "(intp_eval_binary_op #1): bad left operand symbol\n%1S", left);
+		}
+		if ((right == NULL) || (right->type == NULL)) {
+			intp_fatal_error (eng, "(intp_eval_binary_op #2): bad right operand symbol\n%1S", right);
+		}
+	  });
 
 	if (left->value == NULL) {
 		if (left->name == NULL) {
@@ -5311,19 +5224,15 @@ nel_symbol *intp_eval_binary_op (struct nel_eng *eng, nel_O_token op, register n
 				retval = intp_dyn_symbol_alloc (eng, NULL, res_type, NULL, nel_C_RESULT, 0, nel_L_NEL, eng->intp->level);
 				retval->value = intp_dyn_value_alloc (eng, sizeof (char *), nel_alignment_of (char *));
 				if (non_asgn_op == nel_O_SUB) {
-					//added by zhangbin, 2006-5-22
 					if(offset >0 || offset * base_type->simple.size >= left->type->simple.size)
 						if(l_D_token == nel_D_ARRAY)
 							intp_stmt_error(eng, "memory access overflow");
-					//end
 					* ((char **) (retval->value)) = addr - (offset * base_type->simple.size);
 				} else {
-					//added by zhangbin, 2006-5-22
 					if(offset * base_type->simple.size >= left->type->simple.size || 
 						addr + offset * base_type->simple.size < addr)
 						if(l_D_token == nel_D_ARRAY)
 							intp_stmt_error(eng, "memory access overflow");
-					//end
 					* ((char **) (retval->value)) = addr + (offset * base_type->simple.size);
 				}
 			} else if (nel_relational_O_token (non_asgn_op)) {
@@ -5399,11 +5308,11 @@ nel_symbol *intp_eval_binary_op (struct nel_eng *eng, nel_O_token op, register n
 			intp_stmt_error (eng, "operands of %P have incompatible types", op);
 		}
 		nel_debug ({
-					   if (res_type->simple.size <= 0) {
-					   intp_fatal_error (eng, "(intp_eval_binary_op #3): bad result type\n%1T", res_type)
-						   ;
-					   }
-				   });
+			   if (res_type->simple.size <= 0) {
+			   intp_fatal_error (eng, "(intp_eval_binary_op #3): bad result type\n%1T", res_type)
+				   ;
+			   }
+		   });
 
 		/********************************************************/
 		/* coerce both operands to the result type.             */
@@ -5419,9 +5328,7 @@ nel_symbol *intp_eval_binary_op (struct nel_eng *eng, nel_O_token op, register n
 		/* though we still do the same promotions on the operand as */
 		/* for the other arithmetic operations.                     */
 		/************************************************************/
-		//added by zhangbin, 2006-5-19
 		nel_type *old_res_type = res_type;;
-		//end
 		if (nel_relational_O_token (op)) {
 			res_type = nel_signed_int_type;
 		}
@@ -5432,16 +5339,15 @@ nel_symbol *intp_eval_binary_op (struct nel_eng *eng, nel_O_token op, register n
 		/******************************************/
 		retval = intp_dyn_symbol_alloc (eng, NULL, res_type, NULL, nel_C_RESULT, 0, nel_L_NEL, eng->intp->level);
 		retval->value = intp_dyn_value_alloc (eng, res_type->simple.size, res_type->simple.alignment);
-		//added by zhangbin, 2006-5-19
 		if( nel_relational_O_token(op) )
 			intp_op (eng, non_asgn_op, old_res_type, retval->value, l_promo, r_promo);
-		else//end
+		else
 			intp_op (eng, non_asgn_op, res_type, retval->value, l_promo, r_promo);
 	}
 
 	nel_debug ({
-				   intp_trace (eng, "] exiting intp_eval_binary_op\nretval =\n%1S\n", retval);
-			   });
+		   intp_trace (eng, "] exiting intp_eval_binary_op\nretval =\n%1S\n", retval);
+	   });
 
 	return (retval);
 
@@ -5463,15 +5369,15 @@ void intp_insert_bit_field (struct nel_eng *eng, nel_type *type, char *result, r
 	nel_debug ({ intp_trace (eng, "entering intp_insert_bit_field [\neng = 0x%x\ntype =\n%1Tresult = 0x%x\nword = 0x%x\nlb = %d\nsize = %d\n\n", eng, type, result, word, lb, size); });
 
 	nel_debug ({
-				   if (type == NULL) {
-				   intp_fatal_error (eng, "(intp_insert_bit_field #1): NULL type")
-					   ;
-				   }
-				   if (result == NULL) {
-				   intp_fatal_error (eng, "(intp_insert_bit_field #2): NULL result")
-					   ;
-				   }
-			   });
+		   if (type == NULL) {
+		   intp_fatal_error (eng, "(intp_insert_bit_field #1): NULL type")
+			   ;
+		   }
+		   if (result == NULL) {
+		   intp_fatal_error (eng, "(intp_insert_bit_field #2): NULL result")
+			   ;
+		   }
+	   });
 
 	/*******************************************************************/
 	/* copy *result to result_temp, where we can use bit manipulations */
@@ -5487,7 +5393,7 @@ void intp_insert_bit_field (struct nel_eng *eng, nel_type *type, char *result, r
 	/***********************/
 	/* big endian machines */
 	/***********************/
-	mask = 1 << lb;	//((CHAR_BIT * sizeof (unsigned_int)) - lb - size);	//modified by zhangbin, 2006-5-24
+	mask = 1 << lb;	//((CHAR_BIT * sizeof (unsigned_int)) - lb - size);	
 
 
 	for (i = 0; (i < size); i++, mask <<= 1) {
@@ -5504,13 +5410,13 @@ void intp_insert_bit_field (struct nel_eng *eng, nel_type *type, char *result, r
 	/* shift left to discard high-order bits, then shift into */
 	/* position.  position depends upon byte ordering.        */
 	/**********************************************************/
-	word <<= ((CHAR_BIT * sizeof (unsigned_int)) - size);		//modified by zhangbin, 2006-5-24
+	word <<= ((CHAR_BIT * sizeof (unsigned_int)) - size);		
 
 
 	/***********************/
 	/* big endian machines */
 	/***********************/
-	word >>= ((CHAR_BIT*sizeof(unsigned_int)) - size - lb);		//modified by zhangbin, 2006-5-24
+	word >>= ((CHAR_BIT*sizeof(unsigned_int)) - size - lb);	
 
 
 	/***************************************/
@@ -5583,13 +5489,12 @@ nel_symbol *intp_eval_asgn (struct nel_eng *eng, register nel_O_token op, regist
 	/*************************************************************/
 	/* make sure left is a legal left hand side of an assignment */
 	/*************************************************************/
-	/* allow array initializtion , bugfix, wyong, 2006.4.18*/
+	/* allow array initializtion */
 	if ( !(l_D_token == nel_D_ARRAY && r_D_token == nel_D_ARRAY ) 
 		&& !left->lhs ){
 		intp_stmt_error (eng, "illegal lhs of assignment operator");
 	}
 
-	/* wyong, 2006.4.17 */
 	if((l_D_token == nel_D_ARRAY) && (r_D_token == nel_D_ARRAY )) {
 		if (nel_type_diff (l_type, r_type, 0)) {
 				intp_stmt_error (eng, "assignment of different structures");
@@ -5652,19 +5557,15 @@ nel_symbol *intp_eval_asgn (struct nel_eng *eng, register nel_O_token op, regist
 			if (r_D_token == nel_D_POINTER) {
 				r_addr = (* ((char **) right->value));
 				r_base_type = r_type->pointer.deref_type;
-				//added by zhangbin, 2006-6-2
 				if(r_base_type->simple.type == nel_D_FUNCTION)
 					left->s_u = right->s_u;
-				//end
 			} else if (r_D_token == nel_D_ARRAY) {
 				r_addr = right->value;
 				r_base_type = r_type->array.base_type;
 			} else if (r_D_token == nel_D_FUNCTION) {
 				r_addr = right->value;
 				r_base_type = r_type;
-				//added by zhangbin, 2006-6-2
 				left->s_u=right;
-				//end
 			} else /* common, location */
 			{
 				r_addr = right->value;
@@ -5767,6 +5668,7 @@ nel_symbol *intp_eval_asgn (struct nel_eng *eng, register nel_O_token op, regist
 					register nel_member *member = left->member;
 					register nel_symbol *s_u = left->s_u;
 					register unsigned_int r_int;
+
 					nel_debug ({
 						if ((s_u == NULL) || (s_u->type == NULL)) {
 							intp_fatal_error (eng, "(intp_eval_asgn #7): bad lhs member s_u\n%1S", s_u);
@@ -5787,7 +5689,9 @@ nel_symbol *intp_eval_asgn (struct nel_eng *eng, register nel_O_token op, regist
 					/* as many bits as an int, so if a pointer is */
 					/* larger than that, it will get truncated.   */
 					/**********************************************/
-					r_int = (unsigned_int) r_addr;
+				
+					//r_int = (unsigned_int) r_addr;
+					r_int = (unsigned_int)(unsigned_long) r_addr;
 					intp_insert_bit_field (eng, left->type, s_u->value + member->offset, r_int, member->bit_lb, member->bit_size);
 				} else {
 					/******************************************************/
@@ -5870,10 +5774,8 @@ nel_symbol *intp_eval_asgn (struct nel_eng *eng, register nel_O_token op, regist
 	retval->value = intp_dyn_value_alloc (eng, l_type->simple.size, l_type->simple.alignment);
 	nel_copy (l_type->simple.size, retval->value, res_val);
 	
-	//added by zhangbin, 2006-6-2
 	if(left->s_u==right)
 		retval->s_u=right;
-	//eng
 	
 	nel_debug ( {
 		intp_trace (eng, "] exiting intp_eval_asgn\nretval = \n%1S\n", retval);
@@ -5897,15 +5799,15 @@ nel_symbol *intp_eval_inc_dec (struct nel_eng *eng, nel_O_token op, register nel
 	nel_symbol *retval;
 
 	nel_debug ({
-				   intp_trace (eng, "entering intp_eval_inc_dec [\neng = 0x%x\nop = %O\noperand =\n%1S\n", eng, op, operand);
-			   });
+		   intp_trace (eng, "entering intp_eval_inc_dec [\neng = 0x%x\nop = %O\noperand =\n%1S\n", eng, op, operand);
+	   });
 
 	nel_debug ({
-				   if ((operand == NULL) || (operand->type == NULL)) {
-				   intp_fatal_error (eng, "(intp_eval_inc_dec #1): bad operand operand\n%1S", operand)
-					   ;
-				   }
-			   });
+		   if ((operand == NULL) || (operand->type == NULL)) {
+		   intp_fatal_error (eng, "(intp_eval_inc_dec #1): bad operand operand\n%1S", operand)
+			   ;
+		   }
+	   });
 
 	if (operand->value == NULL) {
 		if (operand->name == NULL) {
@@ -5940,11 +5842,11 @@ nel_symbol *intp_eval_inc_dec (struct nel_eng *eng, nel_O_token op, register nel
 		}
 
 		nel_debug ({
-					   if (type->pointer.deref_type == NULL) {
-					   intp_fatal_error (eng, "(intp_eval_inc_dec #2): bad operand type\n%1T", type)
-						   ;
-					   }
-				   });
+			   if (type->pointer.deref_type == NULL) {
+			   intp_fatal_error (eng, "(intp_eval_inc_dec #2): bad operand type\n%1T", type)
+				   ;
+			   }
+		   });
 
 		/***************************************/
 		/* allocate the result symbol.  result */
@@ -6003,8 +5905,8 @@ nel_symbol *intp_eval_inc_dec (struct nel_eng *eng, nel_O_token op, register nel
 	}
 
 	nel_debug ({
-				   intp_trace (eng, "] exiting intp_eval_inc_dec\nretval =\n%1S\n", retval);
-			   });
+		   intp_trace (eng, "] exiting intp_eval_inc_dec\nretval =\n%1S\n", retval);
+	   });
 
 	return (retval);
 }
@@ -6029,15 +5931,15 @@ nel_symbol *intp_eval_address (struct nel_eng *eng, register nel_symbol *operand
 	register nel_symbol *retval;
 
 	nel_debug ({
-				   intp_trace (eng, "entering intp_eval_address [\neng = 0x%x\noperand =\n%1S\n", eng, operand);
-			   });
+		   intp_trace (eng, "entering intp_eval_address [\neng = 0x%x\noperand =\n%1S\n", eng, operand);
+	   });
 
 	nel_debug ({
-				   if ((operand == NULL) || (operand->type == NULL)) {
-				   intp_fatal_error (eng, "(intp_eval_address #1): bad symbol\n%1S", operand)
-					   ;
-				   }
-			   });
+		   if ((operand == NULL) || (operand->type == NULL)) {
+		   intp_fatal_error (eng, "(intp_eval_address #1): bad symbol\n%1S", operand)
+			   ;
+		   }
+	   });
 	type = operand->type;
 
 	/********************************************************************/
@@ -6048,7 +5950,7 @@ nel_symbol *intp_eval_address (struct nel_eng *eng, register nel_symbol *operand
 	/********************************************************************/
 	if ((! nel_lhs_D_token (type->simple.type) && (type->simple.type != nel_D_ARRAY)
 			&& (type->simple.type != nel_D_FUNCTION)) || ((! nel_intp_const_addresses)
-					&& ((operand->class == nel_C_CONST) || (operand->class == nel_C_ENUM_CONST)))) {
+			&& ((operand->class == nel_C_CONST) || (operand->class == nel_C_ENUM_CONST)))) {
 		intp_stmt_error (eng, "illegal operand of &");
 	}
 
@@ -6076,8 +5978,8 @@ nel_symbol *intp_eval_address (struct nel_eng *eng, register nel_symbol *operand
 	*((char **) retval->value) = operand->value;
 
 	nel_debug ({
-				   intp_trace (eng, "] exiting intp_eval_address\nretval =\n%1S\n", retval);
-			   });
+		   intp_trace (eng, "] exiting intp_eval_address\nretval =\n%1S\n", retval);
+	   });
 
 	return (retval);
 
@@ -6094,25 +5996,25 @@ nel_symbol *intp_eval_deref (struct nel_eng *eng, register nel_symbol *operand)
 	register nel_symbol *retval;
 
 	nel_debug ({
-				   intp_trace (eng, "entering intp_eval_deref [\neng = 0x%x\noperand =\n%1S\n", eng, operand);
-			   });
+		   intp_trace (eng, "entering intp_eval_deref [\neng = 0x%x\noperand =\n%1S\n", eng, operand);
+	   });
 
 	nel_debug ({
-				   if ((operand == NULL) || (operand->type == NULL)) {
-				   intp_fatal_error (eng, "(intp_eval_deref #1): bad operand symbol\n%1S", operand)
-					   ;
-				   }
-			   });
+		   if ((operand == NULL) || (operand->type == NULL)) {
+		   intp_fatal_error (eng, "(intp_eval_deref #1): bad operand symbol\n%1S", operand)
+			   ;
+		   }
+	   });
 
 	type = operand->type;
 	if (type->simple.type == nel_D_POINTER) {
 		type = type->pointer.deref_type;
 		nel_debug ({
-					   if (type == NULL) {
-					   intp_fatal_error (eng, "(intp_eval_deref #2): bad deref type\n%1T", type)
-						   ;
-					   }
-				   });
+			   if (type == NULL) {
+			   intp_fatal_error (eng, "(intp_eval_deref #2): bad deref type\n%1T", type)
+				   ;
+			   }
+		   });
 		if (operand->value == NULL) {
 			if (operand->name == NULL) {
 				intp_stmt_error (eng, "NULL address for pointer operand of *");
@@ -6132,20 +6034,18 @@ nel_symbol *intp_eval_deref (struct nel_eng *eng, register nel_symbol *operand)
 		/* result may be a legal lhs, */
 		/* depending upon type.       */
 		/******************************/
-		//added by zhangbin. 2006-6-2
 		if(type->simple.type == nel_D_FUNCTION)
 			return operand->s_u;
-		//end
 		retval = intp_dyn_symbol_alloc (eng, NULL, type, *((char **) (operand->value)), nel_C_RESULT,
 									   nel_lhs_type (type), nel_L_NEL, eng->intp->level);
 	} else if (type->simple.type == nel_D_ARRAY) {
 		type = type->array.base_type;
 		nel_debug ({
-					   if (type == NULL) {
-					   intp_fatal_error (eng, "(intp_eval_deref #3): bad deref type\n%1T", type)
-						   ;
-					   }
-				   });
+			   if (type == NULL) {
+			   intp_fatal_error (eng, "(intp_eval_deref #3): bad deref type\n%1T", type)
+				   ;
+			   }
+		   });
 		if (operand->value == NULL) {
 			if (operand->name == NULL) {
 				intp_stmt_error (eng, "NULL address for array operand of *");
@@ -6187,8 +6087,8 @@ nel_symbol *intp_eval_deref (struct nel_eng *eng, register nel_symbol *operand)
 	}
 
 	nel_debug ({
-				   intp_trace (eng, "] exiting intp_eval_deref\nretval =\n%1S\n", retval);
-			   });
+		   intp_trace (eng, "] exiting intp_eval_deref\nretval =\n%1S\n", retval);
+	   });
 
 	return (retval);
 
@@ -6207,29 +6107,26 @@ nel_symbol *intp_eval_cast (struct nel_eng *eng, register nel_type *type, regist
 	register nel_symbol *retval;
 
 	nel_debug ({
-				   intp_trace (eng, "entering intp_eval_cast [\neng = 0x%x\ntype =\n%1Toperand =\n%1S\n", eng, type, operand);
-			   });
+		   intp_trace (eng, "entering intp_eval_cast [\neng = 0x%x\ntype =\n%1Toperand =\n%1S\n", eng, type, operand);
+	   });
 
 	nel_debug ({
-				   if ((operand == NULL) || (operand->type == NULL) || (operand->value == NULL)) {
-				   intp_fatal_error (eng, "(intp_eval_cast #1): bad operand symbol\n%1S", operand)
-					   ;
-				   }
-			   });
+		   if ((operand == NULL) || (operand->type == NULL) || (operand->value == NULL)) {
+		   intp_fatal_error (eng, "(intp_eval_cast #1): bad operand symbol\n%1S", operand)
+			   ;
+		   }
+	   });
 
 	old_D_token = operand->type->simple.type;
 	new_D_token = type->simple.type;
 
 	if (nel_s_u_D_token (new_D_token) || nel_s_u_D_token (old_D_token)) {
-		//added by zhangbin, 2006-5-18
-		if(new_D_token == old_D_token && nel_type_diff(operand->type, type, 0) == 0)
-		{
+		if(new_D_token == old_D_token && nel_type_diff(operand->type, type, 0) == 0) {
 			retval = intp_dyn_symbol_alloc (eng, NULL, type, NULL, nel_C_RESULT, operand->lhs, nel_L_NEL, eng->intp->level);
 			retval->value = intp_dyn_value_alloc (eng, type->simple.size, type->simple.alignment);			
 			nel_copy(type->simple.size, retval->value, operand->value);
 		}
 		else
-		//end
 			intp_stmt_error (eng, "cast is not a permitted struct/union operation");
 	} else if (nel_pointer_D_token (new_D_token) || (nel_pointer_D_token (old_D_token))) {
 		if (nel_pointer_D_token (new_D_token) && (nel_pointer_D_token (old_D_token))) {
@@ -6267,7 +6164,7 @@ nel_symbol *intp_eval_cast (struct nel_eng *eng, register nel_type *type, regist
 			/* base types - any pointer may legally be cast */
 			/* to any pointer of another type.              */
 			/************************************************/
-			retval = intp_dyn_symbol_alloc (eng, NULL, type, NULL, nel_C_RESULT, /*zhangbin, 2006-5-18*/operand->lhs, nel_L_NEL, eng->intp->level);
+			retval = intp_dyn_symbol_alloc (eng, NULL, type, NULL, nel_C_RESULT, operand->lhs, nel_L_NEL, eng->intp->level);
 			retval->value = intp_dyn_value_alloc (eng, sizeof (char *), nel_alignment_of (char *));
 			*((char **) (retval->value)) = addr;
 		} else {
@@ -6307,7 +6204,7 @@ nel_symbol *intp_eval_cast (struct nel_eng *eng, register nel_type *type, regist
 				/**********************************************/
 				{
 					unsigned_long_int int_op;
-					retval = intp_dyn_symbol_alloc (eng, NULL, type, NULL, nel_C_RESULT, /*zhangbin, 2006-5-18*/operand->lhs, nel_L_NEL, eng->intp->level);
+					retval = intp_dyn_symbol_alloc (eng, NULL, type, NULL, nel_C_RESULT, operand->lhs, nel_L_NEL, eng->intp->level);
 					retval->value = intp_dyn_value_alloc (eng, sizeof (char *), nel_alignment_of (char *));
 					intp_coerce (eng, nel_unsigned_long_int_type, (char *) (& int_op), operand->type, operand->value);
 					*((char **) (retval->value)) = (char *) int_op;
@@ -6339,7 +6236,7 @@ nel_symbol *intp_eval_cast (struct nel_eng *eng, register nel_type *type, regist
 				/*******************************************/
 				{
 					unsigned_long_int int_res;
-					retval = intp_dyn_symbol_alloc (eng, NULL, type, NULL, nel_C_RESULT, /*zhangbin, 2006-5-18*/operand->lhs, nel_L_NEL, eng->intp->level);
+					retval = intp_dyn_symbol_alloc (eng, NULL, type, NULL, nel_C_RESULT, operand->lhs, nel_L_NEL, eng->intp->level);
 					retval->value = intp_dyn_value_alloc (eng, type->simple.size, type->simple.alignment);
 					int_res = (unsigned_long_int) addr;
 					intp_coerce (eng, type, retval->value, nel_unsigned_long_int_type, (char *) (& int_res));
@@ -6358,14 +6255,14 @@ nel_symbol *intp_eval_cast (struct nel_eng *eng, register nel_type *type, regist
 		/* allocate the result symbol, and call */
 		/* intp_coerce to perform the cast.       */
 		/****************************************/
-		retval = intp_dyn_symbol_alloc (eng, NULL, type, NULL, nel_C_RESULT, /*zhangbin, 2006-5-18*/operand->lhs, nel_L_NEL, eng->intp->level);
+		retval = intp_dyn_symbol_alloc (eng, NULL, type, NULL, nel_C_RESULT, operand->lhs, nel_L_NEL, eng->intp->level);
 		retval->value = intp_dyn_value_alloc (eng, type->simple.size, type->simple.alignment);
 		intp_coerce (eng, type, retval->value, operand->type, operand->value);
 	}
 
 	nel_debug ({
-				   intp_trace (eng, "] exiting intp_eval_cast\nretval =\n%1S\n", retval);
-			   });
+		   intp_trace (eng, "] exiting intp_eval_cast\nretval =\n%1S\n", retval);
+	   });
 
 	return (retval);
 
@@ -6382,15 +6279,15 @@ nel_symbol *intp_eval_sizeof (struct nel_eng *eng, register nel_type *type)
 	register nel_symbol *retval;
 
 	nel_debug ({
-				   intp_trace (eng, "entering intp_eval_sizeof [\neng = 0x%x\ntype =\n%1T\n", eng, type);
-			   });
+		   intp_trace (eng, "entering intp_eval_sizeof [\neng = 0x%x\ntype =\n%1T\n", eng, type);
+	   });
 
 	nel_debug ({
-				   if (type == NULL) {
-				   intp_fatal_error (eng, "(intp_eval_sizeof #1): NULL type")
-					   ;
-				   }
-			   });
+		   if (type == NULL) {
+		   intp_fatal_error (eng, "(intp_eval_sizeof #1): NULL type")
+			   ;
+		   }
+	   });
 
 	switch (type->simple.type) {
 	case nel_D_ARRAY:
@@ -6406,7 +6303,7 @@ nel_symbol *intp_eval_sizeof (struct nel_eng *eng, register nel_type *type)
 	case nel_D_STRUCT:
 	case nel_D_UNION:
 		if ((type->s_u.members == NULL) || ((type->s_u.members->symbol == NULL)
-											&& (type->s_u.members->next == NULL))) {
+						&& (type->s_u.members->next == NULL))) {
 			intp_stmt_error (eng, "undefined structure or union");
 			break;
 		}
@@ -6437,8 +6334,8 @@ sizeof_set_result1:
 	}
 
 	nel_debug ({
-				   intp_trace (eng, "] exiting intp_eval_sizeof\nretval =\n%1S\n", retval);
-			   });
+		   intp_trace (eng, "] exiting intp_eval_sizeof\nretval =\n%1S\n", retval);
+	   });
 
 	return (retval);
 
@@ -6458,15 +6355,15 @@ nel_symbol *intp_eval_typeof (struct nel_eng *eng, register nel_type *type)
 	register nel_symbol *retval;
 
 	nel_debug ({
-				   intp_trace (eng, "entering intp_eval_typeof [\neng = 0x%x\ntype =\n%1T\n", eng, type);
-			   });
+		   intp_trace (eng, "entering intp_eval_typeof [\neng = 0x%x\ntype =\n%1T\n", eng, type);
+	   });
 
 	nel_debug ({
-				   if (type == NULL) {
-				   intp_fatal_error (eng, "(intp_eval_typeof #1): NULL type")
-					   ;
-				   }
-			   });
+		   if (type == NULL) {
+		   intp_fatal_error (eng, "(intp_eval_typeof #1): NULL type")
+			   ;
+		   }
+	   });
 
 	/*******************************************************************/
 	/* the return type of a typeof operation is (union nel_TYPE *).     */
@@ -6479,25 +6376,25 @@ nel_symbol *intp_eval_typeof (struct nel_eng *eng, register nel_type *type)
 		type_type = nel_type_alloc (eng, nel_D_UNION, 0, 0, 0, 0, NULL, NULL);
 		tag_type_d = nel_type_alloc (eng, nel_D_UNION_TAG, 0, 0, 0, 0, type_type);
 		tag = nel_static_symbol_alloc (eng, nel_insert_name (eng, "nel_TYPE"),
-									   tag_type_d, (char *) type_type, nel_C_TYPE, 0, nel_L_NEL, 0);
+						tag_type_d, (char *) type_type, nel_C_TYPE, 0, nel_L_NEL, 0);
 		type_type->s_u.tag = tag;
 		nel_insert_symbol (eng, tag, eng->nel_static_tag_hash);
 	} else {
 		nel_debug ({
-					   if (tag->type == NULL) {
-					   intp_fatal_error (eng, "(intp_eval_typeof #2): bad symbol\n%S", tag)
-						   ;
-					   }
-				   });
+			   if (tag->type == NULL) {
+			   intp_fatal_error (eng, "(intp_eval_typeof #2): bad symbol\n%S", tag)
+				   ;
+			   }
+		   });
 		if (tag->type->simple.type != nel_D_UNION_TAG) {
 			intp_stmt_error (eng, "redeclaration of nel_TYPE: typeof disabled");
 		}
 		nel_debug ({
-					   if (tag->type->tag_name.descriptor == NULL) {
-					   intp_fatal_error (eng, "(intp_eval_typeof #3): bad symbol\n%S", tag)
-						   ;
-					   }
-				   });
+			   if (tag->type->tag_name.descriptor == NULL) {
+			   intp_fatal_error (eng, "(intp_eval_typeof #3): bad symbol\n%S", tag)
+				   ;
+			   }
+		   });
 		type_type = tag->type->tag_name.descriptor;
 	}
 
@@ -6512,8 +6409,8 @@ nel_symbol *intp_eval_typeof (struct nel_eng *eng, register nel_type *type)
 	retval = intp_dyn_symbol_alloc (eng, NULL, type_type, res_val, nel_C_RESULT, 0, nel_L_NEL, eng->intp->level);
 
 	nel_debug ({
-				   intp_trace (eng, "] exiting intp_eval_typeof\nretval =\n%1S\n", retval);
-			   });
+		   intp_trace (eng, "] exiting intp_eval_typeof\nretval =\n%1S\n", retval);
+	   });
 
 	return (retval);
 
@@ -6531,15 +6428,15 @@ nel_symbol *intp_eval_member (struct nel_eng *eng, register nel_symbol *s_u, reg
 	register nel_symbol *retval;
 
 	nel_debug ({
-				   intp_trace (eng, "entering intp_eval_member [\neng = 0x%x\ns_u =\n%1S\nmember =\n%1S\n", eng, s_u, member);
-			   });
+		   intp_trace (eng, "entering intp_eval_member [\neng = 0x%x\ns_u =\n%1S\nmember =\n%1S\n", eng, s_u, member);
+	   });
 
 	nel_debug ({
-				   if ((s_u == NULL) || (s_u->type == NULL)) {
-				   intp_fatal_error (eng, "(intp_eval_member #1): bad symbol\n%1S", s_u)
-					   ;
-				   }
-			   });
+		   if ((s_u == NULL) || (s_u->type == NULL)) {
+		   intp_fatal_error (eng, "(intp_eval_member #1): bad symbol\n%1S", s_u)
+			   ;
+		   }
+	   });
 	type = s_u->type;
 	if ((type->simple.type != nel_D_STRUCT) && (type->simple.type != nel_D_UNION)) {
 		intp_stmt_error (eng, "struct/union expected");
@@ -6548,11 +6445,11 @@ nel_symbol *intp_eval_member (struct nel_eng *eng, register nel_symbol *s_u, reg
 	retval = NULL;
 	for (members = type->s_u.members; (members != NULL); members = members->next) {
 		nel_debug ({
-					   if ((members->symbol == NULL) || (members->symbol->name == NULL)) {
-					   intp_fatal_error (eng, "(intp_eval_member #2): bad symbol\n%1S", members->symbol)
-						   ;
-					   }
-				   });
+			   if ((members->symbol == NULL) || (members->symbol->name == NULL)) {
+			   intp_fatal_error (eng, "(intp_eval_member #2): bad symbol\n%1S", members->symbol)
+				   ;
+			   }
+		   });
 		if (! strcmp (members->symbol->name, member->name)) {
 			retval = members->symbol;
 			break;
@@ -6563,11 +6460,11 @@ nel_symbol *intp_eval_member (struct nel_eng *eng, register nel_symbol *s_u, reg
 	}
 	type = members->symbol->type;
 	nel_debug ({
-				   if ((type == NULL) || (type->simple.size <= 0)) {
-				   intp_fatal_error (eng, "(intp_eval_member #3): bad type\n%1T", type)
-					   ;
-				   }
-			   });
+		   if ((type == NULL) || (type->simple.size <= 0)) {
+		   intp_fatal_error (eng, "(intp_eval_member #3): bad type\n%1T", type)
+			   ;
+		   }
+	   });
 
 	/*******************************************************/
 	/* allocate the retval symbol.                         */
@@ -6578,7 +6475,7 @@ nel_symbol *intp_eval_member (struct nel_eng *eng, register nel_symbol *s_u, reg
 	/* lhs, also.                                          */
 	/*******************************************************/
 	retval = intp_dyn_symbol_alloc (eng, NULL, type, NULL, nel_C_RESULT,
-								   nel_lhs_type (type) && s_u->lhs, nel_L_NEL, eng->intp->level);
+					nel_lhs_type (type) && s_u->lhs, nel_L_NEL, eng->intp->level);
 
 	if (members->bit_field) {
 		/****************************************************/
@@ -6599,8 +6496,8 @@ nel_symbol *intp_eval_member (struct nel_eng *eng, register nel_symbol *s_u, reg
 	}
 
 	nel_debug ({
-				   intp_trace (eng, "] exiting intp_eval_member\nretval =\n%1S\n", retval);
-			   });
+		   intp_trace (eng, "] exiting intp_eval_member\nretval =\n%1S\n", retval);
+	   });
 
 	return (retval);
 
@@ -6870,10 +6767,7 @@ nel_type *intp_resolve_type (struct nel_eng *eng, register nel_type *type, char 
 /*****************************************************************************/
 nel_symbol *intp_eval_expr (struct nel_eng *eng, register nel_expr *expr)
 {
-	//register -> , wyong, 20230816 
-	//register nel_symbol *retval;
 	nel_symbol *retval;
-
 	nel_debug ({
 		intp_trace (eng, "entering intp_eval_expr [\neng = 0x%x\nexpr =\n%1X\n", eng, expr);
 	});
@@ -6975,9 +6869,7 @@ nel_symbol *intp_eval_expr (struct nel_eng *eng, register nel_expr *expr)
 		case nel_O_ASGN: {
 				register nel_symbol *left = intp_eval_expr (eng, expr->binary.left);
 				register nel_symbol *right = intp_eval_expr (eng, expr->binary.right);
-				//added by zhangbin, 2006-5-17
-				if(!right)
-				{
+				if(!right) {
 					if(expr->binary.right->gen.opcode == nel_O_LIST 
 						&& (left->type->simple.type == nel_D_STRUCT || left->type->simple.type == nel_D_UNION))//init struct/union var
 					{
@@ -6992,7 +6884,7 @@ nel_symbol *intp_eval_expr (struct nel_eng *eng, register nel_expr *expr)
 						break;
 					}
 				}
-				else//end
+				else
 					retval = intp_eval_asgn (eng, expr->binary.opcode, left, right);
 			}
 			break;
@@ -7030,9 +6922,7 @@ nel_symbol *intp_eval_expr (struct nel_eng *eng, register nel_expr *expr)
 		case nel_O_AND:
 			if (! intp_nonzero (eng, intp_eval_expr (eng, expr->binary.left))) {
 				retval = nel_zero_symbol;
-				//added by zhangbin, 2006-5-19, only to check if the right operand is legal
 				//intp_nonzero(eng, intp_eval_expr(eng, expr->binary.right));
-				//end
 			} else if (! intp_nonzero (eng, intp_eval_expr (eng, expr->binary.right))) {
 				retval = nel_zero_symbol;
 			} else {
@@ -7043,9 +6933,7 @@ nel_symbol *intp_eval_expr (struct nel_eng *eng, register nel_expr *expr)
 		case nel_O_OR:
 			if (intp_nonzero (eng, intp_eval_expr (eng, expr->binary.left))) {
 				retval = nel_one_symbol;
-				//added by zhangbin, 2006-5-19, only to check if the right operand if legal
 				//intp_nonzero(eng, intp_eval_expr(eng, expr->binary.right));
-				//end
 			} else if (intp_nonzero (eng, intp_eval_expr (eng, expr->binary.right))) {
 				retval = nel_one_symbol;
 			} else {
@@ -7088,7 +6976,6 @@ nel_symbol *intp_eval_expr (struct nel_eng *eng, register nel_expr *expr)
 			/* function call */
 			/*****************/
 		case nel_O_FUNCALL: {
-				//register -> , wyong, 20230816 	
 				//register nel_expr_list *args;
 				//register nel_stack *arg_start;
 				//register int nargs;
@@ -7098,10 +6985,6 @@ nel_symbol *intp_eval_expr (struct nel_eng *eng, register nel_expr *expr)
 				int nargs;
 				nel_symbol *func = intp_eval_expr (eng, expr->funcall.func);
 
-//added by zhangbin, 2006-5-22
-//				intp_push_symbol(eng, eng->intp->prog_unit);
-//				eng->intp->prog_unit = func;
-//end
 
 				/*******************************************************/
 				/* scan through the argument list, pushing the symbols */
@@ -7109,13 +6992,10 @@ nel_symbol *intp_eval_expr (struct nel_eng *eng, register nel_expr *expr)
 				/* allocate space for the symbols, as it needs to be   */
 				/* reclaimed after the call.                           */
 				/*******************************************************/
-//added by zhangbin, 2006-5-20
 				nel_list *temp_list = func->type->function.args;
-//end
 				for (args = expr->funcall.args, nargs = 0; (args != NULL); args = args->next, nargs++) 
 				{
-					/* wyong, 2006.5.24 
-					//added by zhangbin, 2006-5-22
+					/* 
 					if(!temp_list)
 					{
 						if(!func->type->function.var_args)
@@ -7123,17 +7003,14 @@ nel_symbol *intp_eval_expr (struct nel_eng *eng, register nel_expr *expr)
 					}
 					else
 						temp_list = temp_list->next;
-					//end
 					*/
 					register nel_symbol *result = intp_eval_expr (eng, args->expr);
 					intp_push_symbol (eng, result);
 				}
 
-				/* wyong, 2006.5.24 
-				//added by zhangbin, 2006-5-22
+				/* 
 				if(temp_list)
 					intp_stmt_error(eng, "less arguments than %s definition", func->name);
-				//end
 				*/
 
 				/*******************************************************/
@@ -7160,9 +7037,6 @@ nel_symbol *intp_eval_expr (struct nel_eng *eng, register nel_expr *expr)
 				intp_set_stack (eng, arg_start - 1);
 #endif /* NEL_DEBUG */
 
-//added by zhangbin, 2006-5-22
-//				intp_pop_symbol(eng, eng->intp->prog_unit);
-//end
 			}
 			break;
 
@@ -7182,18 +7056,18 @@ nel_symbol *intp_eval_expr (struct nel_eng *eng, register nel_expr *expr)
 				retval = intp_eval_sizeof (eng, expr->type.type);
 			} else {
 				nel_debug ({
-							   if (expr->type.expr == NULL) {
-							   intp_fatal_error (eng, "(intp_eval_expr #3): bad type expr\n%1X", expr)
-								   ;
-							   }
-						   });
+					   if (expr->type.expr == NULL) {
+					   intp_fatal_error (eng, "(intp_eval_expr #3): bad type expr\n%1X", expr)
+						   ;
+					   }
+				   });
 				retval = intp_eval_expr (eng, expr->type.expr);
 				nel_debug ({
-							   if (retval == NULL) {
-							   intp_fatal_error (eng, "(intp_eval_expr #4): NULL evaluated sizeof arg")
-								   ;
-							   }
-						   });
+					   if (retval == NULL) {
+					   intp_fatal_error (eng, "(intp_eval_expr #4): NULL evaluated sizeof arg")
+						   ;
+					   }
+				   });
 				retval = intp_eval_sizeof (eng, retval->type);
 			}
 			break;
@@ -7207,18 +7081,18 @@ nel_symbol *intp_eval_expr (struct nel_eng *eng, register nel_expr *expr)
 				retval = intp_eval_typeof (eng, type);
 			} else {
 				nel_debug ({
-							   if (expr->type.expr == NULL) {
-							   intp_fatal_error (eng, "(intp_eval_expr #5): bad type expr\n%1X", expr)
-								   ;
-							   }
-						   });
+					   if (expr->type.expr == NULL) {
+					   intp_fatal_error (eng, "(intp_eval_expr #5): bad type expr\n%1X", expr)
+						   ;
+					   }
+				   });
 				retval = intp_eval_expr (eng, expr->type.expr);
 				nel_debug ({
-							   if (retval == NULL) {
-							   intp_fatal_error (eng, "(intp_eval_expr #6): NULL evaluated typeof arg")
-								   ;
-							   }
-						   });
+					   if (retval == NULL) {
+					   intp_fatal_error (eng, "(intp_eval_expr #6): NULL evaluated typeof arg")
+						   ;
+					   }
+				   });
 				retval = intp_eval_typeof (eng, retval->type);
 			}
 			break;
@@ -7242,11 +7116,9 @@ nel_symbol *intp_eval_expr (struct nel_eng *eng, register nel_expr *expr)
 			}
 			break;
 		
-		//added by zhangbin, to support union/struct var init while declaraing union/struct var
 		case nel_O_LIST:
 			retval = (nel_symbol*)NULL;
 			break;
-		//end, 2006-5-17
 		
 			/*********************************************************/
 			/* the following should never occur as the discriminator */
@@ -7262,8 +7134,8 @@ nel_symbol *intp_eval_expr (struct nel_eng *eng, register nel_expr *expr)
 	}
 
 	nel_debug ({
-				   intp_trace (eng, "] exiting intp_eval_expr\nretval =\n%1S\n", retval);
-			   });
+		   intp_trace (eng, "] exiting intp_eval_expr\nretval =\n%1S\n", retval);
+	   });
 
 	return (retval);
 
@@ -7313,13 +7185,13 @@ nel_symbol *intp_eval_expr_2 (struct nel_eng *eng, register nel_expr *expr)
 	/* withing the engine (if they were stack allocated) */
 	/* and return.                                         */
 	/*******************************************************/
-	//retval = eng->intp->error_ct;  /*bugfix, wyong, 2006.4.12 */
-	retval = nel_symbol_dup(eng, retval);  /*bugfix, wyong, 2006.4.12 */
+	//retval = eng->intp->error_ct;  
+	retval = nel_symbol_dup(eng, retval);  
 	intp_dealloc (eng);
 
 	nel_debug ({ intp_trace (eng, "] exiting intp_eval ()\nerror_ct = %d\n\n", eng->intp->error_ct); });
 	if(old_intp != NULL){
-		nel_dealloca(eng->intp);	//added by zhangbin, 2006-7-20
+		nel_dealloca(eng->intp);
 		eng->intp = old_intp;
 	}
 
@@ -7367,13 +7239,6 @@ void intp_eval_stmt (struct nel_eng *eng, register nel_stmt *list)
 		eng->intp->line = list->gen.line;
 
 
-		/* wyong 2004.5.19 */
-		//file = nel_lookup_file(eng, list->gen.filename);
-		//if(file){
-		//	nel_load_static_scope(eng, file);
-		//}
-
-
 		switch (list->gen.type) {
 
 		/*******************************/
@@ -7408,7 +7273,6 @@ void intp_eval_stmt (struct nel_eng *eng, register nel_stmt *list)
 					/* first, resolve any non-constant dimension */
 					/* bounds and make sure the type is complete */
 					/*********************************************/
-					//bugfix, wyong, 2005.11.25
 					//type = intp_resolve_type (eng, type, symbol->name);
 					nel_debug ({
 					if (type == NULL) {
@@ -7451,7 +7315,6 @@ void intp_eval_stmt (struct nel_eng *eng, register nel_stmt *list)
 					/* first, resolve any non-constant dimension */
 					/* bounds and make sure the type is complete */
 					/*********************************************/
-					//bugfix, wyong, 2005.11.25
 					//type = intp_resolve_type (eng, type, symbol->name);
 					nel_debug ({
 					if (type == NULL) {
@@ -7532,10 +7395,12 @@ void intp_eval_stmt (struct nel_eng *eng, register nel_stmt *list)
 							/********************************************/
 						case nel_D_COMPLEX:
 						case nel_D_COMPLEX_FLOAT:
-							symbol->value = intp_dyn_value_alloc (eng, 2 * sizeof (float), nel_alignment_of (float));
-							*((float *) (symbol->value)) = va_arg (*eng->intp->formal_ap, float);
-							*(((float *) (symbol->value)) + 1) = va_arg (*eng->intp->formal_ap, float);
-							break;
+							//to void warning: ‘float’ is promoted to ‘double’ when passed through ‘...’, 
+							//treat D_COMPLEX_FLOAT as D_COMPLEX_DOUBLE 
+							//symbol->value = intp_dyn_value_alloc (eng, 2 * sizeof (float), nel_alignment_of (float));
+							//*((float *) (symbol->value)) = va_arg (*eng->intp->formal_ap, float);
+							//*(((float *) (symbol->value)) + 1) = va_arg (*eng->intp->formal_ap, float);
+							//break;
 
 							/***********************************************/
 							/* complex doubles are treated as two doubles. */
@@ -7769,12 +7634,10 @@ void intp_eval_stmt (struct nel_eng *eng, register nel_stmt *list)
 					/**************************************************/
 					/* return type is the same type as the expression */
 					/**************************************************/
-					//modified by zhangbin, 2006-5-22
 					if(eng->intp->ret_type)
 						left = intp_dyn_symbol_alloc(eng, NULL, eng->intp->ret_type, 
 													 eng->intp->retval_loc, nel_C_RESULT, 1, nel_L_NEL, eng->intp->level);
 					else
-					//end
 						left = intp_dyn_symbol_alloc (eng, NULL, right->type, eng->intp->retval_loc, nel_C_RESULT, 1, nel_L_NEL, eng->intp->level);
 				}
 
@@ -7789,16 +7652,12 @@ void intp_eval_stmt (struct nel_eng *eng, register nel_stmt *list)
 				}
 				});
 			}
-			//added by zhangbin, 2006-5-22
-			else
-			{
-				if(eng->intp->ret_type != NULL)
-				{
+			else {
+				if(eng->intp->ret_type != NULL) {
 					if(eng->intp->ret_type->simple.type != nel_D_VOID)
 						intp_stmt_error(eng, "a value need to be returned");
 				}
 			}
-			//end
 
 			/*********************************************/
 			/* if the flag nel_save_stmt_err_jmp is true, */
@@ -7814,14 +7673,12 @@ void intp_eval_stmt (struct nel_eng *eng, register nel_stmt *list)
 			nel_longjmp (eng, *(eng->intp->return_pt), 1);
 			break;
 
-		//added by zhangbin, 2006-5-20
 		case nel_S_GOTO:
 			nel_debug({
 				intp_trace(eng, "intp_eval_stmt, nel_S_GOTO");
 			});
 			list = list->goto_stmt.goto_target;
 			break;
-		//end
 
 			/**********************/
 			/* conditional branch */
@@ -7954,8 +7811,6 @@ end:
 /* <symbol>, passing the remaining arguments to it, and returning the result */
 /* in *<retloc>.                                                             */
 /*****************************************************************************/
-//register -> , wyong, 20230816 
-//int intp_eval_stmt_2 (struct nel_eng *eng, register nel_stmt *stmt)
 int intp_eval_stmt_2 (struct nel_eng *eng, nel_stmt *stmt)
 {
 	/********************************************/
@@ -7998,7 +7853,7 @@ int intp_eval_stmt_2 (struct nel_eng *eng, nel_stmt *stmt)
 	retval = eng->intp->error_ct;
 	intp_dealloc(eng);
 	nel_dealloca(eng->intp);
-	//eng->intp = NULL;	//added by zhangbin, 2006-7-21
+	//eng->intp = NULL;	
 	
 	nel_debug ({ intp_trace (eng, "] exiting intp_eval ()\nerror_ct = %d\n\n", eng->intp->error_ct); });
 	if(old_intp != NULL){
@@ -8136,9 +7991,7 @@ int intp_init(struct nel_eng *_eng, char *_filename, FILE *_infile, char *_retva
 	//(_eng)->nel_intp_init_flag = 1;
 	//}
 	
-	//added by zhangbin, 2006-5-22
 	(_eng)->intp->ret_type = NULL;
-	//end
 	return 0;
 
 }
@@ -8166,9 +8019,7 @@ void intp_dealloc(struct nel_eng *_eng)
 	nel_stack_dealloc ((_eng)->intp->semantic_stack_start);
 
 
-	//added by zhangbin, 2006-7-20
 	//nel_dealloca(_eng->intp);
-	//end
 	
 	//	(_eng)->nel_intp_init_flag = 0;
 	//}
@@ -8216,9 +8067,7 @@ int intp_eval_symbol_2(struct nel_eng *eng, char *retloc, register nel_symbol *s
 	nel_malloc(eng->intp, 1, struct eng_intp );
 	intp_init (eng, "", NULL, retloc, formal_ap, 0);
 
-	//added by zhangbin, 2006-5-22
 	eng->intp->ret_type = symbol->type->function.return_type;
-	//end
 
 	/**********************/
 	/* call the evaluator */
@@ -8229,7 +8078,6 @@ int intp_eval_symbol_2(struct nel_eng *eng, char *retloc, register nel_symbol *s
 		intp_eval_stmt (eng, (nel_stmt *) (symbol->value));
 	}
 
-	/* wyong, 2005.6.10 */
 	va_end (*eng->intp->formal_ap);
 
 	/*******************************************************/
@@ -8241,10 +8089,7 @@ int intp_eval_symbol_2(struct nel_eng *eng, char *retloc, register nel_symbol *s
 	intp_dealloc (eng);
 
 	nel_debug ({ intp_trace (eng, "] exiting intp_eval ()\nerror_ct = %d\n\n", eng->intp->error_ct); });
-	
-	/*bugfix, nel_dealloca before nel_debug, wyong, 2005.12.8 */
 	nel_dealloca(eng->intp);
-	//eng->intp = NULL;	//added by zhangbin, 2006-7-21
 	
 	if(old_intp != NULL){
 		eng->intp = old_intp;
@@ -8364,4 +8209,3 @@ int nel_func_call (struct nel_eng *eng, char *retloc, nel_symbol *routine, ...)
 	return (retval);
 
 }
-//zhangbin

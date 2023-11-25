@@ -1,18 +1,12 @@
-/*
- * match_rule.h
- */
-
 #ifndef __MATCH_RULE_H
 #define __MATCH_RULE_H
 
-
-//#include "nlib_swbm.h"
 
 /* for the Global Identification of struct match_info */
 #define MIN_MS_ID		3
 
 
-#if 0 /*wyong*/
+#if 0 
 #if 1
 #define CHECK_SYMBOLID(id, ms) \
 	if (!ms->rlist->rules[id]->val) {\

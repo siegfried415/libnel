@@ -2,21 +2,24 @@
 # $Id: Makefile,v 1.24 2006/10/14 15:51:25 wyong Exp $
 
 
-PUB_INC_DIR	= ../include
+INC_DIR		= ../include
 NLIB_DIR 	= ./nlib
 TEST_DIR	= ./testsuite
-INSTALL_LIBDIR	= /usr/local/lib
+
+LIBNEL_INSTALL_DIR	= /usr/local/lib
+LIBNEL_INC_INSTALL_DIR	= /usr/local/include/nel
+LIBNEL_INC_FILES= ${INC_DIR}/engine.h ${INC_DIR}/analysis.h ${INC_DIR}/intlist.h 
 
 DYN_NEL		= libnel.so
 DYN_NLIB	= libnlib.so
 RUNTEST		= /opt/dejagnu-1.4.4/runtest
 
-CFLAGS	      	= -I. -I${PUB_INC_DIR} -DNEL_NTRP -DNEL_STAB -DSTAB_DEBUG -DNEL_DEBUG -ldl -g 
+CFLAGS	      	= -I. -I${INC_DIR} -DNEL_NTRP -DNEL_STAB -DSTAB_DEBUG -DNEL_DEBUG -ldl -g 
 NEL_SRCS	=analysis.c nel.yacc.c gen.c lex.c stab.c mem_pool.c \
 		type.c  engine.c sym.c intrns.c class.c dec.c opt.c io.c \
 		prod.c evt.c expr.c stmt.c intp.c errors.c parser.c item.c \
 		itemset.c termset.c dprod.c mem.c \
-		free_func.c action.c intlist.c 
+		free_func.c action.c intlist.c peek.c
 
 nel.yacc.c:     nel.y
 		bison $< 
@@ -37,13 +40,18 @@ $(DYN_NLIB)	:
 libnel		: $(DYN_NEL)
 libnlib		: $(DYN_NLIB)
 install-libnel	: ${DYN_NEL}
-		@[ -d $(INSTALL_LIBDIR) ] || mkdir $(INSTALL_LIBDIR)
-		cp -f ${DYN_NEL} ${INSTALL_LIBDIR}
+		@[ -d $(LIBNEL_INSTALL_DIR) ] || mkdir $(LIBNEL_INSTALL_DIR)
+		cp -f ${DYN_NEL} ${LIBNEL_INSTALL_DIR}
+		@[ -d $(LIBNEL_INC_INSTALL_DIR) ] || mkdir $(LIBNEL_INC_INSTALL_DIR)
+		cp ${LIBNEL_INC_FILES}  ${LIBNEL_INC_INSTALL_DIR} 
+
 install-libnlib	: ${DYN_NLIB}
 		cd $(NLIB_DIR) && $(MAKE) install-libnlib 
 
 uninstall-libnel:
-		rm -f ${INSTALL_LIBDIR}/${DYN_NEL}
+		rm -f ${LIBNEL_INSTALL_DIR}/${DYN_NEL}
+		rm -f ${LIBNEL_INC_INSTALL_DIR}/*.*
+
 uninstall-libnlib:
 		cd $(NLIB_DIR) && $(MAKE) uninstall-libnlib 
 

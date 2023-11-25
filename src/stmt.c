@@ -12,14 +12,14 @@
 #include <setjmp.h>
 #include <string.h>
 
-#include <engine.h>
-#include <errors.h>
-#include <io.h>
-#include <type.h>
-#include <expr.h>
-#include <stmt.h>
+#include "engine.h"
+#include "errors.h"
+#include "io.h"
+#include "type.h"
+#include "expr.h"
+#include "stmt.h"
 #include "intp.h"
-#include <lex.h>
+#include "lex.h"
 #include "mem.h"
 
 
@@ -139,11 +139,9 @@ nel_stmt *nel_stmt_alloc (struct nel_eng *eng, register nel_S_token type, regist
 	retval->gen.line = line;
 	retval->gen.visited = 0;
 
-	//added by zhangbin, 2006-6-13
 	retval->gen.compiled=0;
 	retval->gen.addr=0;
 	retval->gen.patch_addr=0;
-	//end
 
 	switch (type) {
 
@@ -179,12 +177,9 @@ nel_stmt *nel_stmt_alloc (struct nel_eng *eng, register nel_S_token type, regist
 		retval->branch.cond = va_arg (args, nel_expr *);
 		retval->branch.true_branch = va_arg (args, nel_stmt *);
 		retval->branch.false_branch = va_arg (args, nel_stmt *);
-		//added by zhangbin, 2006-5-20
 		retval->branch.next = NULL;
-		//end
 		break;
 
-	//added by zhangbin, 2006-5-20
 	/***********************/
 	/*      goto stmt      */
 	/***********************/
@@ -194,16 +189,13 @@ nel_stmt *nel_stmt_alloc (struct nel_eng *eng, register nel_S_token type, regist
 		retval->goto_stmt.next = NULL;
 		retval->goto_stmt.goto_target = va_arg(args, nel_stmt*);
 		break;
-	//end
 
 	case nel_S_WHILE:
 		retval->while_stmt.level = va_arg (args, int);
 		retval->while_stmt.cond = va_arg (args, nel_expr *);
 		retval->while_stmt.body = va_arg (args, nel_stmt *);
-		//added by zhangbin, 2006-6-15
 		retval->while_stmt.break_target = NULL;
 		retval->while_stmt.continue_target = NULL;
-		//end
 		break;
 
 	case nel_S_FOR:
@@ -212,10 +204,8 @@ nel_stmt *nel_stmt_alloc (struct nel_eng *eng, register nel_S_token type, regist
 		retval->for_stmt.cond = va_arg (args, nel_expr *);
 		retval->for_stmt.inc = va_arg (args, nel_expr *);
 		retval->for_stmt.body = va_arg (args, nel_stmt *);
-		//added by zhangbin, 2006-6-15
 		retval->for_stmt.break_target = NULL;
 		retval->for_stmt.continue_target = NULL;
-		//end
 		break;
 
 	/**********/
@@ -317,13 +307,11 @@ int nel_stmt_link(nel_stmt * tail , nel_stmt *head)
 		return -1;
 	
 	switch(tail->gen.type) {
-	//added by zhangbin, 2006-5-20
 	case nel_S_GOTO:
 	case nel_S_BREAK:
 	case nel_S_CONTINUE:
 		tail->goto_stmt.next = head;
 		break;
-	//end
 	case nel_S_BRANCH:
 		tail->branch.next = head;
 		break;
@@ -648,7 +636,7 @@ int nel_stmt_dup( struct nel_eng *eng, nel_stmt *stmts, nel_stmt **new_head, nel
 		case nel_S_BRANCH:
 			{
 			nel_stmt *false_head, *false_tail;
-			nel_stmt *true_head,true_tail;
+			nel_stmt *true_head, *true_tail;
 				
 			nel_stmt_dup(eng, stmt->branch.true_branch, 
 					&true_head, &true_tail);
@@ -679,7 +667,7 @@ int nel_stmt_dup( struct nel_eng *eng, nel_stmt *stmts, nel_stmt **new_head, nel
 			new = nel_stmt_alloc(eng, nel_S_WHILE, 
 				stmt->while_stmt.filename, 
 				stmt->while_stmt.line,
-				stmt->while_stmt.level,	/*bugfix, found by ljh, 2006.06.21 */
+				stmt->while_stmt.level,	
 				nel_dup_expr(eng, stmt->while_stmt.cond), 
 				body_head);
 
@@ -700,7 +688,7 @@ int nel_stmt_dup( struct nel_eng *eng, nel_stmt *stmts, nel_stmt **new_head, nel
 			new = nel_stmt_alloc(eng, nel_S_FOR, 
 				stmt->for_stmt.filename, 
 				stmt->for_stmt.line,
-				stmt->for_stmt.level,/*bugfix, found by ljh, 2006.06.21 */
+				stmt->for_stmt.level,
 				nel_dup_expr(eng, stmt->for_stmt.init), 
 				nel_dup_expr(eng, stmt->for_stmt.cond), 
 				nel_dup_expr(eng, stmt->for_stmt.inc), 
@@ -728,7 +716,6 @@ int nel_stmt_dup( struct nel_eng *eng, nel_stmt *stmts, nel_stmt **new_head, nel
 			stmt = stmt->target.next;
 			break;
 
-		//added by zhangbin, 2006-11-22
 		case nel_S_BREAK:
 		case nel_S_CONTINUE:
 		case nel_S_GOTO:
@@ -742,7 +729,6 @@ int nel_stmt_dup( struct nel_eng *eng, nel_stmt *stmts, nel_stmt **new_head, nel
 			prev = new;
 			stmt = stmt->target.next;
 			break;
-		//end
 
 		default:
 			break;
@@ -767,7 +753,6 @@ int ast_to_intp( struct nel_eng *eng, nel_stmt *stmts, nel_stmt **ret_head, nel_
 
 	while ( stmt != NULL) 
 	{
-		//added by zhangbin, 2006-5-20, to avoid looping infinetely
 		if(stmt->gen.visited == 1)	//stmt has been interpreted
 		{
 			if(!first)
@@ -779,10 +764,8 @@ int ast_to_intp( struct nel_eng *eng, nel_stmt *stmts, nel_stmt **ret_head, nel_
 			break;
 		}
 		stmt->gen.visited = 1;	//mark stmt as visited
-		//end
 		switch (stmt->gen.type) {
 		
-		//added by zhangbin, 2006-5-20
 		case nel_S_GOTO:
 			if(!first)
 				first = stmt;
@@ -821,7 +804,6 @@ int ast_to_intp( struct nel_eng *eng, nel_stmt *stmts, nel_stmt **ret_head, nel_
 				goto error;
 			stmt = stmt->goto_stmt.next;
 			break;
-		//end
 		
 		/*******************************/
 		/* declaration of a new symbol */
@@ -993,10 +975,8 @@ int ast_to_intp( struct nel_eng *eng, nel_stmt *stmts, nel_stmt **ret_head, nel_
 						stmt->while_stmt.line, 
 						stmt->while_stmt.level, NULL);
 
-				//added by zhangbin, 2006-6-15
 				stmt->while_stmt.continue_target = cond_target;
 				stmt->while_stmt.break_target = end_target;
-				//end
 
 				if_stmt = nel_stmt_alloc (eng, nel_S_BRANCH, 
 						stmt->while_stmt.filename,
@@ -1137,11 +1117,8 @@ int ast_to_intp( struct nel_eng *eng, nel_stmt *stmts, nel_stmt **ret_head, nel_
 						cond_target);
 				}
 				
-				//added by zhangbin, 2006-6-15
 				stmt->for_stmt.continue_target = inc_target;
 				stmt->for_stmt.break_target = end_target;
-				//
-				
 				if (stmt->for_stmt.cond != NULL) {
 					if_stmt = nel_stmt_alloc (eng, 
 							nel_S_BRANCH, 
@@ -1161,7 +1138,6 @@ int ast_to_intp( struct nel_eng *eng, nel_stmt *stmts, nel_stmt **ret_head, nel_
 						goto error;
 					}
 
-					/* bugfix, wyong, 2006.4.28 */
 					if(!stmt->for_stmt.cond)
 						nel_stmt_link(prev, head);
 					else
@@ -1326,7 +1302,6 @@ void emit_stmt(FILE *file, register nel_stmt *stmts, int indent)
 			break;
 
 		default:
-			//break; wyong, 2006.5.24 
 			return;
 
 		}
@@ -1336,18 +1311,17 @@ void emit_stmt(FILE *file, register nel_stmt *stmts, int indent)
 
 }
 
-//added by zhangbin, 2006-7-19
 //calling nel_dealloca to free stmt chunk,
 //after call this function, all stmt pointer should be illegal!!!!!!!!
 void stmt_dealloc(struct nel_eng *eng)
 {
-	while(nel_stmt_chunks)
-	{
+	while(nel_stmt_chunks) {
 		nel_stmt_chunk *chunk = nel_stmt_chunks->next;
 		nel_dealloca(nel_stmt_chunks->start); 
 		nel_dealloca(nel_stmt_chunks); 
 		nel_stmt_chunks = chunk;
 	}
-	nel_stmts_next = nel_stmts_end = nel_free_stmts = NULL;
+	nel_stmts_next = NULL;
+	nel_stmts_end = NULL;
+	nel_free_stmts = NULL;
 }
-//end

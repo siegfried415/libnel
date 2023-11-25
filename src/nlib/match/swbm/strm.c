@@ -1,18 +1,11 @@
-/*
- * swbm_strm.c
- * $Id: swbm_strm.c,v 1.2 2006/03/17 05:50:16 wyong Exp $
- */
-
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
-
-#include "match_rule.h"
-
+//#include "match_rule.h"
 #include "ptn.h"
 #include "strm.h"
 #include "intlist.h"
-//#include "stream.h"
 
 
 void free_got_list(got_list_t *got_list)

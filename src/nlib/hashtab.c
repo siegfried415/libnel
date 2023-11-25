@@ -1,12 +1,10 @@
 
 #include <stdio.h>
+#include <stdlib.h>
 #include "nlib/hashtab.h"
 
-//added by zhangbin, 2006-7-17
-#include "mem.h"
 typedef char nel_lock_type;
 extern nel_lock_type nel_malloc_lock;
-//end
 
 /*
 (c) 2002, 2004 James D. Allen
@@ -36,7 +34,7 @@ static long     psize[NUMSIZE] = {
 	36423533, 40976471, 46098527, 51860839, 58343459,
 };
 
-static setsiz(siz)
+static int setsiz(siz)
         long    siz;
 {
         int     cumi, inci;
@@ -110,8 +108,9 @@ Tab_entry *hashfind(hashval, key, tabp)
         }
 }
 
-hashreorg(tabp, siz)
+void hashreorg(tabp, siz)
         struct hashtab *tabp;
+	int siz; 
 {
         int     i, oldsiz;
         Tab_entry       *oohp, *ohp, *nhp;
@@ -125,22 +124,17 @@ hashreorg(tabp, siz)
         tabp->htnumd = 0;
 #endif
         tabp->htsize = siz;
-#if     0
-        printf("Reorganizing from %d to %d\n", oldsiz, siz);
-#endif
+        //printf("Reorganizing from %d to %d\n", oldsiz, siz);
+
         tabp->htmaxalloc = siz - (siz >> TPARM1) - 1;
         tabp->htpmoved = 1;
 		
-		//modified by zhangbin, 2006-7-17, malloc=>nel_malloc
-#if 1
-		nel_malloc(tabp->httab, siz, Tab_entry);
-		nhp = tabp->httab;
-#else
         nhp = tabp->httab = malloc(siz * sizeof(Tab_entry));
-#endif
-		//end modified, 2006-7-17
         if (!nhp) {
-                printf("Malloc(%d) failed\n", siz * sizeof(Tab_entry));
+                //printf("Malloc(%d) failed\n", siz * sizeof(Tab_entry));
+		int size = siz * sizeof(Tab_entry); 
+                printf("Malloc(%d) failed\n", size );
+
                 /* Yes, i know msg "should" go to stderr */
                 exit(1);
         }
@@ -153,13 +147,7 @@ hashreorg(tabp, siz)
                         if (VALID(key))
                                 *(hashfind(HASHER(KEY(key)), key, tabp)) = *ohp;
                 }
-				//modified by zhangbin, 2006-7-17, free=>nel_dealloca
-#if 1
-				nel_free(oohp);	//nel_dealloca(oohp); zhangbin, 2006-10-12
-#else
                 free(oohp);
-#endif
-				//end
         }
 }
 
@@ -181,7 +169,7 @@ hashdelete(key, tabp)
 #endif
 
 /* cover for hashreorg(); bypass for personal control */
-hashmreorg(tabp)
+void hashmreorg(tabp)
         struct hashtab *tabp;
 {
         int     siz;
@@ -208,7 +196,7 @@ hashmreorg(tabp)
  *  for argument `key', creating it if necessary.
  * Return 1 if the entry is new, 0 otherwise.
  */
-hashinsert(key, tabp, tepp)
+int hashinsert(key, tabp, tepp)
         Te_ktype key;
         struct hashtab *tabp;
         Tab_entry **tepp;
@@ -237,34 +225,16 @@ hashinsert(key, tabp, tepp)
 
 void hash_free(struct hashtab *ht)
 {
-	//modified by zhangbin, 2006-7-17, free=>nel_dealloca
-#if 1
-	nel_free(ht);	//nel_dealloca(ht); zhangbin, 2006-10-12
-#else
 	free(ht);
-#endif
-	//end
 }
 
 struct hashtab *hash_alloc(int size)
 {
 	struct hashtab *ht;
-//modified by zhangbin, 2006-10-8
-#if 1
-	nel_calloc(ht, 1, struct hashtab);
-	if(ht)
-	{
-		Tab_entry *hp;
-		nel_calloc(ht->httab, 1, Tab_entry);
-		ht->htsize = 1;
-	}
-#else
 	if( (ht = calloc(sizeof(struct hashtab ),1 )) != NULL ){
 		Tab_entry *hp;
 		ht->httab = calloc(sizeof(Tab_entry), 1);
 		ht->htsize = 1;
 	}
-#endif
-//end, 2006-10-8
 	return ht; 
 }

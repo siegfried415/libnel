@@ -5,16 +5,7 @@
 struct nel_eng;
 union nel_EXPR;
 
-//#include "evt.h"
-//#include "item.h"
 #include "termset.h"
-/*****************************symbol stuff**********************************/
-/* type definition for compiler module */
-//typedef struct nel_comp_type{
-//	int t;
-//	union nel_TYPE *ref;
-//} CType;
-
 
 /********************************************/
 /* symbol class constants.  they begin with */
@@ -72,23 +63,23 @@ typedef enum nel_L_TOKEN {
 
 struct nel_EVENT
 {
-        int pid;		/* wyong, 2004.6.1 */
-        int cyclic;		/* */
-        TerminalSet first;	/* */
-        TerminalSet follow;	/* */
+        int pid;		
+        int cyclic;		
+        TerminalSet first;	
+        TerminalSet follow;	
 
-        /* event 's extend field, wyong, 2005.3.23 */
-        int state;		/* */
-        int deep;		/* */
+        /* event 's extend field */
+        int state;
+        int deep;
         int flag;
         //union nel_EXPR *expr;
-        //union nel_EXPR *expr2;	/* wyong, 2004.5.23 */
+        //union nel_EXPR *expr2;
         //struct nel_SYMBOL *at_class;
         //struct nel_SYMBOL *default_class;
-        //int nodelay;		/* */
-        int isEmptyString;	/* */
-        int reachable;		/* */
-	int isolate;		/* wyong, 2006.3.9 */
+        //int nodelay;	
+        int isEmptyString;
+        int reachable;	
+	int isolate;	
 	struct nel_EVENT *next;
 
         struct nel_SYMBOL *parent;
@@ -108,7 +99,7 @@ typedef struct nel_SYMBOL
 {
         nel_C_token class;		/* symbol class (see above)	 */
         char *name;			/* identifier string 		 */
-        int id;				/* wyong, 2004.6.1 */
+        int id;				
         union nel_TYPE *type;		/* type descriptor		 */
         char *value;			/* points to memory alloced for  */
         				/* value class nel_C_TERMINAL or */
@@ -119,7 +110,7 @@ typedef struct nel_SYMBOL
 	unsigned_int lhs: 1;		/* legal left hand side of assignment*/
 	nel_L_token source_lang: 4;	/* source code language		*/
 	unsigned_int declared: 1;	/* flag used when parsing declarations*/
-	unsigned_int initialized: 1;	/* flag used when parsing initialization, wyong, 2006.4.30 */
+	unsigned_int initialized: 1;	/* flag used when parsing initialization */
 	int level: 21;			/* scoping level (can be neg)	*/
         int reg_no;			/* register # (if register symbol)*/
 
@@ -143,13 +134,15 @@ typedef struct nel_SYMBOL
 #define _follow  aux.event->follow
 #define _isEmptyString aux.event->isEmptyString
 #define _reachable aux.event->reachable
-#define _isolate aux.event->isolate	//wyong, 2006.3.9 
+#define _isolate aux.event->isolate
 
 #define _s_u aux.s_u
 #define _member aux.member
 #define _global aux.global
 
-        int v;    			/* symbol token */
+        //int v;    			/* symbol token */
+	char *v; 			
+
         int r;    			/* associated register */
         int c;    			/* associated number */
 
@@ -265,7 +258,10 @@ typedef union nel_STACK {
         struct nel_BLOCK *block;
         nel_C_token C_token;
         nel_D_token D_token;
-        int integer;
+
+        //int integer;
+	long integer;
+
         struct nel_LIST *list;
         char *name;
         struct nel_MEMBER *member;
@@ -480,9 +476,7 @@ nel_symbol_table;
 	(_table)->max = __max;						\
 }
 
-//added by zhangbin, 2006-7-19
 #define nel_static_hash_table_dealloc(_table) nel_dyn_hash_table_dealloc(_table)
-//end
 
 
 /**************************************************************************/
@@ -662,11 +656,9 @@ extern void nel_symbol_init (struct nel_eng *);
 extern void emit_symbol(FILE *fp, nel_symbol *symbol);
 extern int nel_symbol_diff(nel_symbol *s1, nel_symbol *s2);
 
-//added by zhangbin, 2006-7-19
 void static_symbol_dealloc(struct nel_eng *eng);
 void static_value_dealloc(struct nel_eng *eng);
 void static_name_dealloc(struct nel_eng *eng);
-//end
 
 //-----------------grammar parse tree--------------------------------
 extern struct nel_LIST *c_include_list ;
@@ -680,6 +672,6 @@ extern int c_include_num ;
 // motivated by things like the derivability relation, where it's
 // nice to treat empty like any other symbol
 
-
+int evt_symbol_update_dollar(struct nel_eng *eng, nel_symbol *symbol, int pos, int value);
 
 #endif

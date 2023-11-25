@@ -1,8 +1,3 @@
-/*
- * swbm_same.h
- * $Id: swbm_same.h,v 1.2 2006/03/17 05:50:16 wyong Exp $
- */
-
 #ifndef __SWBM_SAME_H
 #define __SWBM_SAME_H
 

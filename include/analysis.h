@@ -1,12 +1,7 @@
 
-/*
- * analysis.h
- * $Id: analysis.h,v 1.12 2006/09/26 10:33:02 wyong Exp $
- */
-
 #ifndef ANALYSIS_H 
 #define ANALYSIS_H 
-#include <engine.h>
+#include "engine.h"
 
 #define list_del(sh)							\
 {									\
@@ -41,7 +36,6 @@ struct token {
 	int 	nel_count;
 };
 
-/* rewrite the following macro, wyong, 2006.6.1 */
 #define NEL_REF_DEF  	 	int nel_count;
 #define NEL_REF_SYM(eng, i)	(eng->symbolInfo[i])
 #define NEL_REF_TYP(eng, i)	(NEL_REF_SYM(eng, i)->type)
@@ -128,9 +122,9 @@ struct nel_env
 	int recovery_mode;		
 };
 
-extern int nel_env_init(struct nel_eng *, struct nel_env *, SymbolId , void *);
-extern int nel_env_analysis(struct nel_eng *, struct nel_env *, SymbolId , void *);
-extern void nel_env_cleanup(struct nel_eng *, struct nel_env *);
-
+int nel_env_init(struct nel_eng *, struct nel_env *, SymbolId , void *);
+int nel_env_analysis(struct nel_eng *, struct nel_env *, SymbolId , void *);
+void nel_env_cleanup(struct nel_eng *, struct nel_env *);
+int add_symbol_id_init(struct nel_eng *eng);
 
 #endif

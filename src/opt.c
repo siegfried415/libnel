@@ -12,6 +12,9 @@
 #include "expr.h"
 #include "opt.h"
 #include "mem.h"
+#include "class.h" 
+#include "gen.h"
+
 #define IS_FUNC_NODE	1
 #define NOT_FUNC_NODE	0
 
@@ -86,7 +89,7 @@ struct exp_node *new_func_exp (nel_expr_list *args, int id, nel_expr *expr)
 	}
 
 	//nel_calloc(exp->opr.arglist, i, nel_expr*);
-	nel_calloc(exp->opr.arglist, i+1, nel_expr*);  //modified by yanf, 2006.11.28
+	nel_calloc(exp->opr.arglist, i+1, nel_expr*);  
 	if (!exp->opr.arglist) {
 		gen_error(NULL, "nel_malloc error \n");
 		free_exp_node(exp, IS_FUNC_NODE);
@@ -97,7 +100,6 @@ struct exp_node *new_func_exp (nel_expr_list *args, int id, nel_expr *expr)
 		exp->opr.arglist[i] = args->expr; 
 	}
 
-	/* wyong, 2004.5.23 */
 	exp->expr = expr;
 	return exp;
 }
@@ -186,8 +188,6 @@ int add_func_exp(struct prior_node *prior, int id, nel_expr *expr, nel_expr_list
 		
 	if (found != 1) {   
 		prior->numcount++;
-
-		/* corrected the bug,  wyong, 2004.5.27 */
 		exp = new_func_exp(org_args, id, expr);
 		if (!exp)
 			return -1;
@@ -437,7 +437,7 @@ int addto_priority (	struct nel_eng *eng,
 	return 0;
 }
 
-/*  all expression are complicated expression, wyong, 2006.4.25 */
+/*  all expression are complicated expression */
 int is_simple_expr(struct prior_node **priority, nel_expr *expr)
 {
 	return 0;
@@ -699,7 +699,6 @@ int init_predicate(	struct nel_eng *eng,
 					return -1;
 				}
 
-				/* bugfix, wyong, 2004.6.21 */
 				pred->predid = psym->_pid;
 	
 				/* link all pred together */
@@ -820,7 +819,6 @@ int reset_in_use_flags(struct prior_node **priority, int_list_t *in_use_id_list)
 				/* initiate first */
 				exp->in_use_flag = 0;
 
-				//wyong, 2006.5.23 
 				if(exp->val == T ){	
 					//if TRUE, needn't consieder 
 					//it anymore 
@@ -875,7 +873,7 @@ int do_relation_optimize(struct nel_eng *eng,
 	
 	for (exp= pnode->exp; exp; exp=exp->next) {
 		pid = exp->id_list;
-		while(pid){ //wyong, 2006.5.23 
+		while(pid){ 
 			if (check_int_list(id_list, pid->val) == 0) {
 				break;
 			}
@@ -905,8 +903,8 @@ int do_relation_optimize(struct nel_eng *eng,
 
 		true_stmt_head = true_stmt_tail = NULL;
 		if (do_optimize(eng, priority, 
-			count_int_list(id_list), /*count, wyong, 2006.5.23 */
-			id_list, /*exp->id_list, wyong, 2006.5.23 */ 
+			count_int_list(id_list), 
+			id_list, 
 			SymbolID, result, 
 			&true_stmt_head, 
 			&true_stmt_tail) == -1) {
@@ -956,9 +954,8 @@ int do_simp_function_optimize(	struct nel_eng *eng,
 	int flag = 0;
 
 	for (exp=pnode->exp; exp; exp=exp->next) {
-		// wyong, 2006.5.23 
 		int_list_t *pid = exp->id_list;
-			while(pid){ //wyong, 2006.5.23 
+			while(pid){ 
 				if (check_int_list(id_list, pid->val) == 0) {
 					break;
 				}
@@ -990,8 +987,8 @@ int do_simp_function_optimize(	struct nel_eng *eng,
 		true_stmt_head = true_stmt_tail = NULL;
 		if (do_optimize(eng, 
 			priority, 
-			count_int_list(id_list), /*count, wyong, 2006.5.23 */
-			id_list, /*exp->id_list , wyong, 2006.5.23 */
+			count_int_list(id_list), 
+			id_list, 
 				SymbolID, result, &true_stmt_head, 
 			&true_stmt_tail) == -1) {
 			if (*stmt_head)
@@ -1032,7 +1029,7 @@ int do_clus_function_optimize(	struct nel_eng *eng,
 
 	nel_stmt *stmt, 
 	              *end_stmt;
-	nel_stmt *head_stmt;	//bugfix, wyong, 2004.10.17
+	nel_stmt *head_stmt;
 
 	nel_stmt *prev_stmt = NULL;
 
@@ -1067,14 +1064,13 @@ int do_clus_function_optimize(	struct nel_eng *eng,
 	if (!stmt) 
 		return -1;
 
-	head_stmt = stmt; //bugfix, wyong, 2004.10.17 
+	head_stmt = stmt; 
 
 	*stmt_head = head_stmt;
 	for (exp=pnode->exp; exp; exp=exp->next) {
 		exp->val = T;	/* turn on */
 		for (pid=exp->id_list; pid; pid=pid->next) {
 
-			//wyong, 2006.5.23 
 			if (check_int_list(id_list, pid->val) != 0) {
 				continue;
 			}
@@ -1105,8 +1101,8 @@ int do_clus_function_optimize(	struct nel_eng *eng,
 			true_stmt_head = true_stmt_tail = NULL;
 			if (do_optimize(eng, 
 				priority, 
-				1, 	/*count, wyong, 2006.5.23 */
-				npid,	/*exp->id_list, wyong, 2006.5.23 */
+				1, 	
+				npid,	
 					SymbolID, result,
 					&true_stmt_head, 
 				&true_stmt_tail) == -1) {
@@ -1246,12 +1242,9 @@ int do_optimize(		struct nel_eng *eng,
 
 	while (copy_in_use_id_list) {
 
-		/* wyong, 2004.5.24 */
 		maxsplit = 0;
 		max_prior_node = NULL;
 
-
-		//xiayu
 		reset_in_use_flags(priority, copy_in_use_id_list);
 
 		/* there are still some logic ID that has not been optimized 
@@ -1273,7 +1266,6 @@ int do_optimize(		struct nel_eng *eng,
 			}
 		}
 
-		/* wyong , 2006.5.23 */
 		if(max_prior_node == NULL) {
 			return 0;
 		}
@@ -1298,7 +1290,7 @@ int do_optimize(		struct nel_eng *eng,
 			case COMP_RELATION:
 				sub_stmt_head = sub_stmt_tail = NULL;
 				if (do_relation_optimize(eng, 
-					/*head, tail, copy_in_use_id_list, wyong, 2006.5.23 */ 
+					/*head, tail, copy_in_use_id_list */ 
 						prior_id_list,  max_prior_node, priority, SymbolID, 
 						result, &sub_stmt_head, &sub_stmt_tail) == -1) {
 					if (*stmt_head)
@@ -1362,7 +1354,7 @@ int optimize_class_func_stmt_alloc(	struct nel_eng *eng,
 					int count, 
 					nel_symbol *result, 
 					nel_stmt **stmt_head, 
-					nel_stmt *stmt_tail)
+					nel_stmt **stmt_tail)
 {
 	nel_symbol **symbol_ids;
 	struct pred_node *pred=NULL;
@@ -1382,7 +1374,7 @@ int optimize_class_func_stmt_alloc(	struct nel_eng *eng,
 		goto Error;
 	}
 
-	//xiayu: notsure whether should free the following two.
+	//notsure whether should free the following two.
 	//free(SymbolID);
 	//free_pred_node(pred);
 	return 0;

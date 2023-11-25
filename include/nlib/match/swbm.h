@@ -1,8 +1,3 @@
-
-/*
- * swbm.h
- */
-
 #ifndef _SWBM_H
 #define _SWBM_H
 
@@ -107,7 +102,6 @@ struct trieobj {
         int alphabet;
         struct trie **mtries;
         int shortest;
-        //xiayu for SMTP
         int longest;
         int nocase; /* 1-nocase 0-case sensitive */
         int *bad;
@@ -173,5 +167,7 @@ int swbm_match(       unsigned char *text,
                          	struct rule_list *rlist,
 				int retnum,
 				struct ret_sym **retsyms );
+
+void free_rule_list(struct rule_list *rlist);
 
 #endif

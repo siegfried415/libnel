@@ -1,11 +1,3 @@
-
-
-/*
- * analysis.c, for nel analysis with tree stack.
- * written by siegfried, wang.yong@neusoft.com 
- * $Id: analysis.c,v 1.25 2006/10/09 04:01:49 zhangb Exp $ 
- */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -19,31 +11,11 @@
 #include "gen.h"
 #include "errors.h"
 #include "intp.h"
-
-//wyong, 20230804 
-//#include "stream.h"
-
 #include "class.h" 
 #include "itemset.h"
 #include "prod.h"
-
-//wyong, 20230905 
+#include "io.h" 
 #include "mem.h"
-
-//modified by zhangbin, move it to "mem.h"
-/*
-#if 1
-#define malloc(size) Malloc(size,__FILE__,__LINE__)
-#define free(b) Free(b,__FILE__,__LINE__)
-#define realloc(b, size) Realloc(b, size, __FILE__,__LINE__)
-#define checksum() mem_checkAll()
-#else
-#define malloc(size) malloc(size)
-#define free(b) free(b)
-#define realloc(b, size) realloc(b, size)
-#define checksum() 
-#endif
-*/
 
 typedef void(* FREE_FUNC)(void *); 
 #define REALLOC_LEN 10
@@ -66,15 +38,12 @@ void analysis_trace (struct nel_eng *eng, char *message, ...)
 		/*******************************************/
 		nel_lock (&nel_error_lock);
 
-
                 nel_do_print (stderr, message, args);
-
 
 		/*************************/
 		/* exit critical section */
 		/*************************/
 		nel_unlock (&nel_error_lock);
-
 
                 va_end (args);
         }
@@ -88,18 +57,6 @@ void analysis_trace (struct nel_eng *eng, char *message, ...)
 /*****************************************************************************/
 int analysis_error (struct nel_eng *eng, char *message, ...)
 {
-
-#if 0
-	va_list args;
-	if (eng != NULL) {
-		va_start (args, message);
-		nel_error(eng, nel_R_ANALYSIS, eng->intp->filename,
-			eng->intp->line, message, args);
-		va_end (args);
-	}
-	return (0);
-#endif
-
 	va_list args;
 
 	if ( eng && (eng->analysis_verbose_level >= 0 )) {
@@ -110,11 +67,6 @@ int analysis_error (struct nel_eng *eng, char *message, ...)
 		/*******************************************/
 		nel_lock (&nel_error_lock);
 
-		//if ((eng != NULL) 
-		//	&& (eng->stab->type!= nel_R_NULL) 
-		//	&& (eng->stab->filename != NULL)){
-		//	fprintf (stderr, "\"%s\", line %d: ", eng->stab->filename, eng->stab->line);
-		//}
 		nel_do_print (stderr, message, args);
 		fprintf (stderr, "\n");
 
@@ -130,12 +82,12 @@ int analysis_error (struct nel_eng *eng, char *message, ...)
 
 inline int createStackPool(ObjPool_t *objPool, int max)
 {
-	return __objPool_create(objPool, sizeof(struct Stack), max);
+	return create_mem_pool(objPool, sizeof(struct Stack), max);
 }
 
 inline int destroyStackPool(ObjPool_t *objPool)
 {
-	return __objPool_destroy(objPool);
+	return destroy_mem_pool(objPool);
 }
 
 
@@ -150,8 +102,8 @@ static inline struct Stack *del_from_foot_list(struct nel_eng *eng, struct nel_e
 		c = s->stackNodes[count].foot;		
 		do {
 			p = c; 
-			c = c->stackNodes[ c->num - 1 ].foot; /* bugfix, yangf/20060628.nel, wyong, 2006.7.13 */
-			if(PRIORITY(p) > PRIORITY(ret)){/* bugfix, 2005.3.10 */
+			c = c->stackNodes[ c->num - 1 ].foot; 
+			if(PRIORITY(p) > PRIORITY(ret)){
 				ret = p;
 			}
 		} while( c != s ) ;
@@ -164,33 +116,6 @@ static inline struct Stack *del_from_foot_list(struct nel_eng *eng, struct nel_e
 	return ret;
 }
 
-#if 0
-/* uncommented by wyong, 2006.9.25 */
-static inline struct Stack *del_from_root_list(struct nel_eng *eng, struct nel_env *env, struct Stack *s, int count)
-{
-	struct Stack *p, *c;
-	struct Stack *ret = (struct Stack *)0;
-	//StateId topState;
-
-	if(s->stackNodes[count].root != s ) {
-		/* first get previous stack 'p', it may be 's' itself */
-		c = s->stackNodes[count].root;		
-		do {
-			p = c; 
-			c = c->stackNodes[count].root;
-			if( PRIORITY(p) > PRIORITY(ret)){/* bugfix, 2005.3.10 */
-				ret = p;
-			}
-		} while( c != s ) ;
-
-		/*then get current stack 's' out from 'root' list */
-		p->stackNodes[count].root = s->stackNodes[count].root;
-		s->stackNodes[count].root = s;
-	}
-
-	return ret;
-}
-#endif
 
 static inline void release( struct nel_eng *eng, int symbolId, void *sval)
 {
@@ -224,8 +149,7 @@ static inline void release( struct nel_eng *eng, int symbolId, void *sval)
 		}
 
 		else {
-			/*NOTE,NOTE,NOTE, it 's better to do nothing ,
-			wyong, 2005.5.27 */
+			/* it 's better to do nothing */
 		}
 
 	}
@@ -250,7 +174,7 @@ static inline int free_stack(struct nel_eng *eng, struct nel_env *env, struct St
 		release(eng, s->stackNodes[i].symbolId,s->stackNodes[i].sval);
 	}
 
-	return __obj_free_toPool(&stack_pool, TO_OBJ(s));
+	return free_mem(&stack_pool, TO_OBJ(s));
 
 }
 
@@ -259,15 +183,8 @@ static inline struct Stack * alloc_stack(void)
 	struct Stack *tmp;
 	ObjPool_t *objPool = &stack_pool;
 
-	/* NOTE, NOTE, NOTE, add thread control, wyong, 2004.10.25 */
-	if( !(tmp = __obj_alloc_fromPool(objPool)) )
-	{
-		if( __objPool_alloc_more(objPool, sizeof(struct Stack), REALLOC_LEN ) > 0 )
-		{
-			tmp = __obj_alloc_fromPool(objPool);
-		}
-	}
-
+	objPool->size  = sizeof(struct Stack); 
+	tmp = alloc_mem(objPool) ; 
 	return tmp?TO_DATA(tmp):0;
 }
 
@@ -288,7 +205,7 @@ search_again:
 		if(state == new_state_id 
 		&& t->stackNodes[t->num-1].sval == sval){
 
-			/* found a stack can be merged, wyong, 2006.9.25 */
+			/* found a stack can be merged */
 			int off = eng->stateTable[state].dot_pos;
 
 			if( off > 0 && off <= s->num && off <= (t->num-1)){
@@ -297,16 +214,16 @@ search_again:
 				for(i = s->num - 1; i > s->num - off; i-- ) {
 					release(eng, s->stackNodes[i].symbolId,  s->stackNodes[i].sval );	
 				}
-					s->stackNodes[s->num - off].foot
-						= t->stackNodes[t->num - off - 1].foot; 
-					t->stackNodes[t->num - off - 1 ].foot= s;
+				s->stackNodes[s->num - off].foot
+					= t->stackNodes[t->num - off - 1].foot; 
+				t->stackNodes[t->num - off - 1 ].foot= s;
 
 				s->num = s->num - off + 1; 
 				s->used = 1;	
 				return 1;
 			}
 			
-			/* can't merge, continue to search, wyong, 2006.9.25  */
+			/* can't merge, continue to search  */
 
 		}
 		sh2 = sh2->next;
@@ -331,20 +248,20 @@ static inline struct Stack *copy_stack(struct nel_eng *eng, struct Stack *s, int
 	if(( n = alloc_stack() )){
 
 		/* copy every stack node info from s to n, set root and 
-		foot information when necessary. wyong, 2005.3.8 */
+		foot information when necessary. */
 		for(i=0; i < count; i++){
 
-			/* setting root , wyong, 2005.3.8 */
+			/* setting root */
 			n->stackNodes[i].root= s->stackNodes[i].root;
 			s->stackNodes[i].root = n;
 
-			/* setting foot, wyong, 2005.3.8 */
+			/* setting foot */
 			n->stackNodes[i].foot = n;
 			if ( s != s->stackNodes[i].foot 
 			&& s->num > ((struct Stack *)s->stackNodes[i].foot)->num ) {
 				/* which means the stack s is an proxy stack 
 				for some others stack, create duplicated stack 
-				for those stack too,  wyong, 2005.3.8 */
+				for those stack too */
 				struct Stack *nn = copy_stack(eng, s->stackNodes[i].foot, i + 1);
 				n->stackNodes[i].foot = nn->stackNodes[i].foot;
 				nn->stackNodes[i].foot  = n;	
@@ -359,7 +276,7 @@ static inline struct Stack *copy_stack(struct nel_eng *eng, struct Stack *s, int
 			}
 		}
 
-		n->num  = count;  /* bugfix, wyong, 2005.3.9 */
+		n->num  = count; 
 		n->used   = 0;
 	}
 	return n; 
@@ -370,7 +287,6 @@ int addSymbolId(struct SymbolSet *result, int id)
 {
 	if(result) {
 		if(result->num < SYM_SET_NUM  ) {
-			//bugfix, lj/20060628.nel, wyong, 2006.7.13 
 			result->symbolIds[result->num++] = id; 
 		}
 	}
@@ -398,10 +314,7 @@ int add_symbol_id_init(struct nel_eng *eng)
 		args = nel_list_alloc(eng, 0, symbol, args);
 
 
-		//type = nel_type_alloc (eng, nel_D_INT, sizeof (int), nel_alignment_of (int), 0, 0);
 		type = nel_type_alloc (eng, nel_D_FUNCTION, 0, 0, 0, 0, 0, 0, nel_int_type, args, NULL, NULL);
-
-		
 		symbol = nel_static_symbol_alloc (eng, nel_insert_name(eng, "addSymbolId"), type, (char *) addSymbolId, nel_C_COMPILED_FUNCTION, nel_lhs_type(type), nel_L_C, 0);
 
 		nel_insert_symbol (eng, symbol, eng->nel_static_ident_hash);
@@ -421,7 +334,6 @@ int add_symbol_id_init(struct nel_eng *eng)
 
 }
 
-//wyong, 20230906 
 int eval_class_func(struct nel_eng *eng, nel_symbol *func, int len,  struct Stack *s, void *sval, struct SymbolSet *set )
 {
         /********************************************/
@@ -432,8 +344,6 @@ int eval_class_func(struct nel_eng *eng, nel_symbol *func, int len,  struct Stac
         struct eng_intp *old_intp = NULL;
         int val;
         nel_symbol *retval;
-
-        //union nel_STACK *start, *next, *end;
 	char name[16];
 	int i; 
 	nel_symbol *symbol ; 
@@ -501,9 +411,8 @@ int eval_class_func(struct nel_eng *eng, nel_symbol *func, int len,  struct Stac
 	retval = nel_symbol_dup(eng, retval);  
 	intp_dealloc (eng);
 
-	nel_debug ({ intp_trace (eng, "] exiting eval_class_func ()\nerror_ct = %d\n\n", eng->intp->error_ct); });
+	nel_debug ({ analysis_trace (eng, "] exiting eval_class_func ()\nerror_ct = %d\n\n", eng->intp->error_ct); });
 	
-	//bugfix, nel_dealloca before nel_debug, wyong, 2005.12.8 
 	nel_dealloca(eng->intp);
 	if(old_intp != NULL){
 		eng->intp = old_intp;
@@ -540,24 +449,21 @@ static inline int do_class(struct nel_eng *eng, struct nel_env *env, struct Stac
 		len  = LEN_OF_CLASS(eng, topState, id);
 
 	}
-	else if(sval == NULL ){  /* bugfix, wyong, 2005.3.9 */
+	else if(sval == NULL ){  
 		return 0;
 	}
 
 	if(!func) {
-		/* NOTE,NOTE,NOTE, check here carefully, wyong,2004.11.26 */
 		return 0;
 	}
 
 	nel_debug({analysis_trace(eng, "--->do_class, func=%s, func len =%d!\n", func->name, len);});
 
-	//wyong, 20230905 
 	ret = eval_class_func(eng, func, len, s, sval, set);
 	return ret;
 }
 
 #if 0
-/* this is just for debug, wyong, 2006.9.26 */
 int print_queue(struct nel_eng *eng, struct nel_env *env)
 {
 	struct StackHead *scan, *end;
@@ -604,7 +510,7 @@ static inline void add_to_work_queue(struct nel_eng *eng, struct nel_env *env,  
 
 	/* Originally we add lhs 's count at next do_stack_shift, 
 	but zzh found the cases which another stack will incorrectly 
-	free the sval.  bugfix by wyong, 2006.9.26 */
+	free the sval. */
 	if(sval){
 		NEL_REF_ADD(eng, id, sval);
 	}
@@ -653,18 +559,17 @@ static inline int do_stack_shift(struct nel_eng *eng, struct nel_env *env, struc
 		return 0;
 	}
 
-	/* procet the stack from overflow, wyong, 2004.11.28 */
+	/* procet the stack from overflow */
 	if( s->num >= STACKMAXNUM ){	
 		analysis_error(eng, "--->stack(%p) 's number is overflowed(%d) !\n", s, s->num);
 		return -1;
 	}
 					
 	/* we can't get stack which have same state with s from 0 to
-	s->num, so simple set root with itself. wyong, 2005.3.8 */
+	s->num, so simple set root with itself. */
 	s->stackNodes[s->num].root = s;
 
-	/* there is no stack which can be proxy of stack s , so set foot
-	with itself, 		wyong, 2005.3.8 */
+	/* there is no stack which can be proxy of stack s , so set foot with itself. */
 	s->stackNodes[s->num].foot = s ;
 
 	s->stackNodes[s->num].stateId = new_state_id; 
@@ -677,7 +582,7 @@ static inline int do_stack_shift(struct nel_eng *eng, struct nel_env *env, struc
 	}
 
 #if 0
-	/* deal with timeout, wyong, 2004.11.27*/
+	/* deal with timeout */
 	timeout = eng->state_timeout_tbl[new_state_id];
 	if(timeout < 0 ) {
 		/* stop the current timer, when state timeout == 0; */
@@ -729,7 +634,6 @@ static inline int stack_sr_shift(struct nel_eng *eng, struct nel_env *env, struc
 
 	/* put the stack and un-consumed event into work queue, 
 	use priority to determine the position be inserted */
-	/*bugfix, change s->num to c->num, wyong, 2006.8.30 */
 	topState = c->stackNodes[c->num-1].stateId;
 
 	c->used = 0;
@@ -738,8 +642,7 @@ static inline int stack_sr_shift(struct nel_eng *eng, struct nel_env *env, struc
 		c->used = 1;
 	}
 
-	/* if SR/RR conflicit, copy the stack and continue the process, 
-	wyong, 2006.3.2 */
+	/* if SR/RR conflicit, copy the stack and continue the process. */
 	if (eng->stateTable[topState].has_reduce > 0 ){
 		if(c->used ==1){
 			c = copy_stack(eng, c, c->num ); 
@@ -754,7 +657,7 @@ static inline int stack_sr_shift(struct nel_eng *eng, struct nel_env *env, struc
 
 }
 
-/* handle process SS shift, wyong, 2006.9.24 */
+/* handle process SS shift */
 static inline int stack_ss_shift(struct nel_eng *eng, struct nel_env *env, struct Stack *s, SymbolId id, void *sval)
 {	
 	struct Stack *c, *b;
@@ -802,10 +705,10 @@ static inline int stack_ss_shift(struct nel_eng *eng, struct nel_env *env, struc
 	}
 	
 	if (id_acpt_cnt == 0){
-			if(sval){
-				NEL_REF_ADD(eng, id, sval);
-				release(eng, id, sval);	/* wyong, 2006.10.9 */
-			}
+		if(sval){
+			NEL_REF_ADD(eng, id, sval);
+			release(eng, id, sval);	
+		}
 	}	
 	
 	return 1;
@@ -829,7 +732,7 @@ static inline int stack_shift(struct nel_eng *eng, struct nel_env *env, struct S
 	/* get the most left rhs of the rule */ 
 	c = s;
 	c->used = 0;
-	nc = del_from_foot_list(eng, env, c, c->num - 1 ); /* bugfix, wyong, 2005.3.9 */
+	nc = del_from_foot_list(eng, env, c, c->num - 1 ); 
 	
 	do {
 		/* do terminal or nonterminal classification */ 
@@ -844,7 +747,7 @@ static inline int stack_shift(struct nel_eng *eng, struct nel_env *env, struct S
 		}
 
 		/* we have't got an expect event,fake an 'others' event,
-		and feed it to analiazer. wyong, 2004.11.26 */
+		and feed it to analiazer. */
 		if( set.num == 0) {
 
 #if 0
@@ -911,7 +814,7 @@ do_next_c:
 		nel_debug({analysis_trace(eng, "--->stack_shift, id not accept, free it(%d,%p)!\n", id, sval); });
 		if(sval){
 			NEL_REF_ADD(eng, id, sval);
-			release(eng, id, sval);	/* wyong, 2006.10.9 */
+			release(eng, id, sval);	
 		}
 	}	
 
@@ -920,7 +823,6 @@ do_next_c:
 }
 
 
-//wyong, 20230906 
 int eval_reduce_func(struct nel_eng *eng, nel_symbol *func, char**psval,  int len,  struct Stack *s )
 {
         /********************************************/
@@ -991,9 +893,8 @@ int eval_reduce_func(struct nel_eng *eng, nel_symbol *func, char**psval,  int le
 	retval = nel_symbol_dup(eng, retval);  
 	intp_dealloc (eng);
 
-	nel_debug ({ intp_trace (eng, "] exiting eval_class_func ()\nerror_ct = %d\n\n", eng->intp->error_ct); });
+	nel_debug ({ analysis_trace (eng, "] exiting eval_reduce_func ()\nerror_ct = %d\n\n", eng->intp->error_ct); });
 	
-	//bugfix, nel_dealloca before nel_debug, wyong, 2005.12.8 
 	nel_dealloca(eng->intp);
 	if(old_intp != NULL){
 		eng->intp = old_intp;
@@ -1017,7 +918,7 @@ static inline int do_stack_reduce(struct nel_eng *eng, struct nel_env *env, stru
 	s->used = 0;
 
 
-	//call reduce function, wyong, 2006.3.2 
+	//call reduce function
 	func = eng->prodInfo[prodId].action;
 	if(!func) {
 		analysis_error(eng, "no action for production(%d)\n", prodId);
@@ -1027,9 +928,8 @@ static inline int do_stack_reduce(struct nel_eng *eng, struct nel_env *env, stru
 	nel_debug({analysis_trace(eng, "--->do_stack_reduce for stack(%p) before call_reduce_func(%s)!\n", s, func->name);});
 
 
-	//wyong, 20230905 
 	len = eng->prodInfo[prodId].rhsLen; 
-	ret = eval_reduce_func( eng, func, (char *)&sval, len, s );	
+	ret = eval_reduce_func( eng, func, (char **)&sval, len, s );	
 	s->num -= len ;
 
 	//nel_debug({analysis_trace(eng, "--->do_stack_reduce for stack(%p) call_reduce_func over!\n", s);});
@@ -1038,11 +938,6 @@ static inline int do_stack_reduce(struct nel_eng *eng, struct nel_env *env, stru
 		analysis_error(eng, "call reduce function(%s) failed\n", func->name);
 		return -1;
 	}
-
-	//removed by wyong, 2006.3.2 
-	//if(prodId >= 0 
-	//	&& do_stack_reduce(eng, env, s, prodId, &sval) >= 0)	
-	//{
 
 	if((symbolId = eng->prodInfo[prodId].lhsIndex) == eng->target_id) {
 		/* set lrParse finish flag */
@@ -1057,9 +952,8 @@ static inline int do_stack_reduce(struct nel_eng *eng, struct nel_env *env, stru
 			$$ = $1;	
 		}
 		;
-	so we here add the count first, and then sub.(we will realy add count 
-	until we have the need and we have done), this way, we can solve the 
-	problem. wang.yong 2003.11.2
+	so we here add the count first, and then sub.(we will realy add count until
+	we have the need and we have done), this way, we can solve the problem. 
 	*/
 	if(sval){
 		NEL_REF_ADD(eng, symbolId, sval);
@@ -1068,13 +962,7 @@ static inline int do_stack_reduce(struct nel_eng *eng, struct nel_env *env, stru
 	/* release all rhs 's value */ 
 	for(i=0; i< eng->prodInfo[prodId].rhsLen; i++){
 		release(eng, s->stackNodes[s->num+i].symbolId, s->stackNodes[s->num+i].sval);
-		/* if s->stackNodes[s->num+i] in some root list, pick it
-		up, wyong, 2005.3.8  */
-#if 0
-		/* uncommented, wyong, 2006.9.25  */
-		del_from_root_list(eng, env, s, s->num + i );
-#endif
-
+		/* if s->stackNodes[s->num+i] in some root list, pick it up  */
 	}
 
 
@@ -1086,7 +974,6 @@ static inline int do_stack_reduce(struct nel_eng *eng, struct nel_env *env, stru
 
 
 #if 0
-	/* uncommented by wyong, 2006.9.25 */
 	if(eng->prodInfo[prodId].rel == REL_EX ){
 		struct Stack *ns = del_from_root_list(eng, env, s, s->num -1 );
 		env_not_handler(eng, env, ns, s->num - 1 );
@@ -1101,7 +988,6 @@ static inline int do_stack_reduce(struct nel_eng *eng, struct nel_env *env, stru
 	}
 #endif
 
-	/* bugfix,  wyong, 2005.3.9 */
 	add_to_work_queue(eng,env,s,symbolId,sval);	
 
 	return 0;
@@ -1150,8 +1036,8 @@ int stack_reduce(struct nel_eng *eng, struct nel_env *env, struct Stack *s, Acti
 }
 
 
-/* if input token consumed,  return 1, wyong, 2005.11.4  */
-static inline int do_env_analysis(struct nel_eng *eng, struct nel_env *env, struct Stack *s, SymbolId id, void *sval /*, int type*/ )
+/* if input token consumed,  return 1  */
+static inline int do_env_analysis(struct nel_eng *eng, struct nel_env *env, struct Stack *s, SymbolId id, void *sval)
 {
 	StateId topState;
 	ActionEntry entry ;
@@ -1180,22 +1066,18 @@ static inline int do_env_analysis(struct nel_eng *eng, struct nel_env *env, stru
 
 	if(entry == 0 ){
 		if(id != 0 /* when it is a reduce */
-			&& id == encodeSymbolId(eng, eng->otherSymbol->id, nel_C_TERMINAL)){	//modified by zhanbin, 2006-8-10, "!=" => "=="
+			&& id == encodeSymbolId(eng, eng->otherSymbol->id, nel_C_TERMINAL)){	
 			stack_shift(eng,env, s, encodeSymbolId(eng,eng->otherSymbol->id,nel_C_TERMINAL), sval );
 		}else {
-			//added by zhangbin, 2006-8-10
 			nel_debug({analysis_trace(eng, "--->unexpected input event!\n");});
-			//end
 			free_stack(eng, env, s, s->num - 1 );
 		}
 
 		return 0;
 	}
 
-	/* in case of state has both reduce and shift entry, check whether  
-	it is an shift, wyong, 2004.11.28  */
+	/* in case of state has both reduce and shift entry, check whether it is an shift */
 	if (isShiftAction(eng, entry) 
-		/* bugfix, wyong, 2006.6.5 */
 		|| ( isAmbigAction(eng, entry) && id != 0 ) ){	
 		nel_debug({analysis_trace(eng, "--->do_env_analysis for stack(%p), call stack_shift!\n", s);});
 		stack_shift(eng, env, s, id, sval);
@@ -1204,10 +1086,9 @@ static inline int do_env_analysis(struct nel_eng *eng, struct nel_env *env, stru
 	}
 
 
-	/* OK, we have an certifiable reduction, call stack_reduce 
-	do the dirty things, wyong, 2004.11.28 */
+	/* OK, we have an certifiable reduction, call stack_reduce do the dirty things */
 	nel_debug({analysis_trace(eng, "--->do_env_analysis for stack(%p), call stack_reduce!\n", s);});
-	stack_reduce(eng, env, s, /*prodId*/ entry );
+	stack_reduce(eng, env, s, entry );
 	//nel_debug({analysis_trace(eng, "--->do_env_analysis for stack(%p), call stack_reduce over !\n", s);});
 
 	return 0;
@@ -1224,35 +1105,26 @@ int nel_env_analysis( struct nel_eng *eng, struct nel_env *env, SymbolId id, voi
 
 	nel_debug({analysis_trace(eng, "\n\n--->start nel_env_analysis, eng=%p, id=%d, sval=%p\n", eng, id, sval);});
 
-	/* if the symbol was unreachable, don't analysis it any more, and 
-	relase it ASAP, wyong, 2005.11.7 */
+	/* if the symbol was unreachable, don't analysis it any more, and relase it ASAP */
 	if( id <= 0 ) {  /*  id == 0 , unreachable, < 0 nonterminal */
-		//added by zhangbin, 2006-8-10
-		if(id<0)
-		{
+		if(id<0) {
 			nel_debug({analysis_trace(eng, "--->nonterminal input event detected!\n\n");});
-		}
-		else
-		{
+		} else {
 			nel_debug({analysis_trace(eng, "--->unreachable input event detected!\n\n");});
 		}
-		//end
 		return 1;
 	}else if(id == 
 		encodeSymbolId(eng,eng->endSymbol->id,nel_C_TERMINAL)){
-		/* force to free the env, wyong, 2006.6.20 */
+		/* force to free the env  */
 		nel_env_cleanup(eng, env);
 		
 		/* go on */
 	}
 	
-	//added by zhangbin, 2006-8-10
-	if(id > eng->numTerminals)
-	{
+	if(id > eng->numTerminals) {
 		nel_debug({analysis_trace(eng, "--->illegal input terminal id detected!\n\n");});
 		return -1;
 	}
-	//end
 	
 	sigemptyset(&mask);
 	sigaddset(&mask, SIGALRM);
@@ -1270,7 +1142,7 @@ int nel_env_analysis( struct nel_eng *eng, struct nel_env *env, SymbolId id, voi
 		if(env->finished) break;
 	}
 
-	/* get the highest stack from env->work queue,wyong,2004.11.28*/
+	/* get the highest stack from env->work queue */
 	while(!list_empty(&env->work_queue)) {
 		sh = env->work_queue.next;
 
@@ -1287,7 +1159,7 @@ int nel_env_analysis( struct nel_eng *eng, struct nel_env *env, SymbolId id, voi
 			consumed += do_env_analysis(eng, env, stack, id, sval );
 		}else {
 			/* sval have been owned by work queue, own the sval 
-			again by  sub the count, wyong, 2006.9.26  */
+			again by  sub the count.  */
 			NEL_REF_SUB(eng, sh->id, sh->sval);
 
 			do_env_analysis(eng, env, stack, sh->id, sh->sval);
@@ -1361,8 +1233,7 @@ int env_not_handler(struct nel_eng *eng, struct nel_env *env, struct Stack *s, i
 		return -1;
  	}
 
-	/* we call env_not_handler recusively to free the stack started with
-	nc, wyong, 2005.3.9 */
+	/* we call env_not_handler recusively to free the stack started with nc */
 	ns = del_from_root_list(eng, env, s, count);		
 	env_not_handler(eng, env, ns, count); 
 
@@ -1370,13 +1241,13 @@ int env_not_handler(struct nel_eng *eng, struct nel_env *env, struct Stack *s, i
 	
 		if( s->stackNodes[i].foot != s ) {
 			/* it means 's' is still the proxy of some stack, so we 
-			can't free the rest of the stack. wyong, 2005.3.9 */
+			can't free the rest of the stack. */
 			if(((struct Stack *)s->stackNodes[i].foot)->num < s->num) {
 				return 0;
 			}
 		} 	
 
-		/* free this stackNode, wyong, 2005.3.8 */	
+		/* free this stackNode */	
 		release(eng, s->stackNodes[i].symbolId, s->stackNodes[i].sval);
 		del_from_root_list(eng, env, s, i);	
 		del_from_foot_list(eng, env, s, i);
@@ -1384,8 +1255,8 @@ int env_not_handler(struct nel_eng *eng, struct nel_env *env, struct Stack *s, i
 
 	nel_debug({analysis_trace(eng, "--->stack(%p) be freed\n", s);});
 	list_del(&s->head);
-	__obj_free_toPool(&stack_pool, TO_OBJ(s));
 
+	free_mem(&stack_pool, TO_OBJ(s));
 	return 1;
 }
 #endif
@@ -1421,10 +1292,6 @@ void nel_env_cleanup(struct nel_eng *eng, struct nel_env *env)
 		free_stack(eng, env, s, s->num -1 );
 	}
 	
-	//added by zhangbin, 2006-7-19
-	//destroyStackPool(&stack_pool);
-	//end
-	
 	return;
 
 }
@@ -1453,7 +1320,7 @@ int nel_env_init(struct nel_eng *eng, struct nel_env *env, SymbolId id, void *sv
 
 	/*create stackNode 0, and insert it into to be shift list */ 
 	if (!(s = alloc_stack() )){
-		/*NOTE,NOTE,NOTE, need we free env, wyong, 2005.,3.8 */
+		/*NOTE,NOTE,NOTE, need free env */
 		analysis_error(eng, "nel_env_init: can't alloc an stack !\n");
 		return -1;		
 	}
@@ -1465,8 +1332,7 @@ int nel_env_init(struct nel_eng *eng, struct nel_env *env, SymbolId id, void *sv
 	s->stackNodes[s->num].symbolId = id; 
 	s->stackNodes[s->num].sval = sval;
 
-	/* root and foot are cycly linked list, initialize them
-	by itself. 		wyong, 2005.3.8  */
+	/* root and foot are cycly linked list, initialize them by itself. */
 	s->stackNodes[s->num].root= s;
 	s->stackNodes[s->num].foot= s;
 
@@ -1474,7 +1340,6 @@ int nel_env_init(struct nel_eng *eng, struct nel_env *env, SymbolId id, void *sv
 		NEL_REF_ADD(eng,id, s->stackNodes[s->num].sval);
 	}
 
-	/* wyong, 2005.10.27 */
 	sym = eng->symbolInfo[id];
 	nel_debug({analysis_trace(eng, "--->id=%d, sym = %p\n", id, sym);});
 	if( sym != NULL && ( func = sym->type->event.init_hander ) != NULL){

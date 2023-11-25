@@ -15,14 +15,14 @@
 #include <elf.h>
 #include <setjmp.h>
 
-#include <type.h>		/* type descriptor definitions		*/
-#include <intp.h>		/* decs for ops (needed by nel_stack.h)	*/
-#include <lex.h>		/* decs for this file			*/
-#include <err.h>		/* decs for error handlers		*/
-#include <engine.h>
-#include <parser.h>
-#include <errors.h>
-#include <mem.h>
+#include "type.h"		/* type descriptor definitions		*/
+#include "intp.h"		/* decs for ops (needed by nel_stack.h)	*/
+#include "lex.h"		/* decs for this file			*/
+#include "err.h"		/* decs for error handlers		*/
+#include "engine.h"
+#include "parser.h"
+#include "errors.h"
+#include "mem.h"
 
 
 static char nel_nextc(struct nel_eng *eng);
@@ -63,9 +63,9 @@ struct keyinfo keywordtable[] =
 	{"if", 	nel_T_IF},
 	{"int", 	nel_T_INT},
 	{"init", 	nel_T_INIT},
-	{"fini", 	nel_T_FINI},	//wyong, 2006.4.12 
-	{"main", 	nel_T_MAIN},	//wyong, 2006.3.13
-	{"exit", 	nel_T_EXIT},	//wyong, 2006.3.13
+	{"fini", 	nel_T_FINI},
+	{"main", 	nel_T_MAIN},
+	{"exit", 	nel_T_EXIT},
 	{"long", 	nel_T_LONG},
 	{"nodelay", 	nel_T_NODELAY},
 	{"register", 	nel_T_REGISTER},
@@ -156,7 +156,7 @@ void yyerror(struct nel_eng *eng, char *message, ...)
 	}
 	*/
 	
-	return (0);
+	return ;
 
 }
 
@@ -181,30 +181,18 @@ static void tokexpand(struct nel_eng *eng)
 	tokoffset = eng->parser->tok - eng->parser->text;
 	//toksize *= 2;
 	{
-		/* bugfix, wyong, 2005.6.2 */
 		toksize = 2 * tokoffset;
 		if(toksize < 120 )
 			toksize = 120;
 	}
 
-	if (eng->parser->text)
-//modified by zhangbin, 2006-10-9
-#if 1
-	{
+	if (eng->parser->text) {
 		nel_realloc(eng->parser->text, eng->parser->text, toksize);
 	}
-#else
-		eng->parser->text = (char *)realloc(eng->parser->text, toksize);
-#endif
-//end, 2006-10-9
-	else
-		//modified by zhangbin, 2006-7-17, malloc=>nel_malloc
-#if 1
+	else{
 		nel_malloc(eng->parser->text, toksize, char);
-#else
-		eng->parser->text = (char *)malloc(toksize);
-#endif
-		//end, 2006-7-17
+	}
+
 	eng->parser->tokend = eng->parser->text + toksize;
 	eng->parser->tok =  eng->parser->text + tokoffset;
 
@@ -216,7 +204,7 @@ static int squoted_sync(struct nel_eng *eng)
 	int retval = 0;
 	char c;
 
-	for ( c= nel_nextc(eng); c != '\'' && c != ';' && c != "}" && c != '\0' ;
+	for ( c= nel_nextc(eng); c != '\'' && c != ';' && c != '}' && c != '\0' ;
 		c = nel_nextc(eng)) {
 		retval ++;	
 	}
@@ -249,15 +237,12 @@ static int get_src_buf(struct nel_eng *eng)
 
 	if ((retval=fgets( eng->parser->buf, nel_YY_READ_BUF_SIZE, eng->parser->infile)) == NULL ){
 		//fclose(eng->parser->infile);
-		/*bugfix for rain/20060927.nel, wyong, 2006.9.27*/
 		ret = 0;	
 	}
 
 	eng->parser->lexptr = eng->parser->buf;
 	eng->parser->lexend = eng->parser->lexptr + strlen(eng->parser->lexptr);
 
-
-	/*bugfix for rain/20060927.nel, wyong, 2006.9.27*/
 	return ret;
 }
 
@@ -267,17 +252,14 @@ static char nel_nextc(struct nel_eng *eng)
 
         if (eng->parser->lexptr 
 		&& eng->parser->lexptr < eng->parser->lexend){
-				//added by zhangbin, 2006-5-15
-				//if(*eng->parser->lexptr == '\0')
-				//	eng->parser->lexptr++;
-				//end
+		//if(*eng->parser->lexptr == '\0')
+		//	eng->parser->lexptr++;
                 c = *eng->parser->lexptr++;
 	}
         else if (get_src_buf(eng)) {
                 c = *eng->parser->lexptr++;
 	}
         else {
-		/* wyong, 2006.9.15 */
                 c = *(eng->parser->lexptr++) = '\0';
                 //eng->parser->lexptr++;
                 //c = '\0';
@@ -300,7 +282,7 @@ int nel_yylex(struct nel_eng *eng)
 	int i;	
 	int overflow = 0;
 	register nel_symbol *symbol;
-	long long n;	//modified by zhangbin, 2006-6-1, long=>long long
+	long long n;
 	int quoted_cnt = 0;
 	int hex = 0;
 
@@ -409,7 +391,7 @@ retry:
 			case 'X':
 			case 'x':
 				hex = 1;
-				c = nel_nextc(eng);	/*bugfix, wyong, 2006.4.18 */
+				c = nel_nextc(eng);
 				/* pass through */
 			case '1':
 			case '2':
@@ -540,7 +522,7 @@ do_sync:
 			ret(nel_T_DOLLAR_IDENT);
 
 		} 
-		/* commented by wyong, 2006.4.27 
+		/* 
 		else if (c == '$') {
 			ret(nel_T_DOLLAR_IDENT);
 		}
@@ -677,8 +659,8 @@ findstar:
 			for (;;){	
 				switch (c) {
 				case 'i': tokadd(eng, c); len ++; break;
-				case 's': tokadd(eng, c); len ++; break;	//added by zhangbin, 2006-12-6
-				case 'm': tokadd(eng, c); len ++; break;	//added by zhangbin, 2006-12-6
+				case 's': tokadd(eng, c); len ++; break;	
+				case 'm': tokadd(eng, c); len ++; break;
 				case '/': break;
 				default:
 					pushback(eng);
@@ -771,9 +753,7 @@ return_REGEXT:
 		//while(shouldback--)
 		//	pushback();
 		
-		//added by zhangbin, 2006-5-18
 		pushback(eng);
-		//end
 		ret(nel_T_PERCENT);
 
 	case '^':
@@ -1093,7 +1073,6 @@ dquoted_finish:
 		if(c == '0' && (c1 == 'x' || c1 == 'X')) {
 			int d;
 
-			/* bugfix, add two line, wyong, 2006.4.27 */
 			c = nel_nextc(eng);
 			c = nel_nextc(eng);
 
@@ -1145,7 +1124,7 @@ dquoted_finish:
 			pushback(eng);	
 			if(c == '.' || c == 'e' || c == 'E') {
 found_f:
-				/* this if a floating point number,wyong,2005.4.22 */
+				/* this if a floating point number */
 				if (c == '.'){
 					do {
 						c = nel_nextc(eng);
@@ -1180,7 +1159,7 @@ found_f:
 				}
 				else if (c == 'l' || c == 'L') {
 //found_long_double:
-					sscanf(eng->parser->text, "%lf", 
+					sscanf(eng->parser->text, "%Lf", 
 						&(eng->parser->long_double_lval));
 					ret(nel_T_C_LONG_DOUBLE);
 				}else {
@@ -1224,13 +1203,11 @@ found_i:
 				if(c != '\0')
 					pushback(eng);
 found_unsigned_long_int:
-				//modified by zhangbin, 2006-6-1
 				/*
 				sscanf(eng->parser->text, "%ul",
 					&(eng->parser->unsigned_long_int_lval));
 				*/
 				eng->parser->unsigned_long_int_lval = n;
-				//end
 				ret(nel_T_C_UNSIGNED_LONG_INT);
 
 			}else if( n > UINT_MAX ){
@@ -1383,7 +1360,7 @@ char *nel_token_string (register int token)
          case nel_T_FLOAT:			return ("float");
          case nel_T_FOR:			return ("for");
          case nel_T_FORTRAN:		return ("fortran");
-         /*case nel_T_GOTO:			return ("goto");*/	//modified by zhangbin, 2006-6-2
+         /*case nel_T_GOTO:			return ("goto");*/
          case nel_T_IF:			return ("if");
          case nel_T_INT:			return ("int");
          case nel_T_LONG:			return ("long");
@@ -1588,7 +1565,7 @@ void nel_parser_lex_init(struct nel_eng *_eng, FILE *_infile)
 	//(_eng)->parser->n_chars = 0;	  
 	(_eng)->parser->text = NULL;
 	nel_alloca ((_eng)->parser->buf, nel_YY_BUF_SIZE + 2, char);
-	(_eng)->parser->lexptr_begin = (_eng)->parser->buf;//add by zhangbin
+	(_eng)->parser->lexptr_begin = (_eng)->parser->buf;
 	//(_eng)->parser->leng = 0;
 	//(_eng)->parser->c_buf_p = NULL;
 	//(_eng)->parser->init = 1;
@@ -1621,10 +1598,8 @@ void nel_parser_lex_dealloc(struct nel_eng *_eng)
 	nel_dealloca ((_eng)->parser->buf);
 	(_eng)->parser->infile = NULL;
 	
-	//added by zhangbin, 2006-7-18, memory leak
 	if((_eng)->parser->text)
 		nel_dealloca((_eng)->parser->text);
-	//end
 	
 	//(_eng)->parser->current_buffer = NULL;
 }

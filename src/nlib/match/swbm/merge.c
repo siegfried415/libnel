@@ -1,19 +1,9 @@
-/*
- * swbm_merge.c
- * $Id: swbm_merge.c,v 1.2 2006/03/17 05:50:16 wyong Exp $
- */
-
-
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <ctype.h>
 
 #include "nlib/match/swbm.h"
-
-#if 0
-#include "ptn.h"
-#include "merge.h"
-#endif
 #include "same.h"
 
 
@@ -162,7 +152,7 @@ struct ptn_list *prepare_pat(struct rule_list *rlist, int nocase)
 			return NULL;
 		}
 
-		/* NOTE, NOTE, NOTE. xiayu: felt already no need to reserve 'pat_id_list' */
+		/* felt already no need to reserve 'pat_id_list' */
 		pat_id_list = new_int_list(i, NULL);
 		if (pat_id_list == NULL) {
 			free_int_list(match_id_list);
@@ -1315,7 +1305,6 @@ int fillin_samemapline(int newcount, int oldcount, int shortest, struct pat_tree
 		Similarity[i][newcount-1] = new_same_bit(rcutflag, icutnum, jcutnum, same, 0, ptn);
 		if (!Similarity[i][newcount-1])
 			return -1;
-		//xiayu
 		Similarity[i][newcount-1]->ptn = ptn;
 		/* don't free ptn, for it's refered by 'Similarity' */	
 		ptn = NULL;

@@ -1,8 +1,3 @@
-/*
- * swbm_trie.c
- * $Id: swbm_trie.c,v 1.2 2006/03/17 05:50:16 wyong Exp $
- */
-
 #include <stdio.h> 
 #include <stdlib.h> 
 #include <ctype.h>
@@ -11,7 +6,7 @@
 #include "trie.h"
 #include "intlist.h"
 
-/* rain, 2005.12.21
+/* 
 #include "mem_pool.h"
 ObjPool_t	swbm_trie_pool;
 ObjPool_t	swbm_branch_pool;
@@ -164,7 +159,7 @@ void trie_nocase(struct trieobj * self)
 
 void init_swbm_tree_mem_pool (void)
 {
-	/* rain 2005.12.21 
+	/* 
 	create_mem_pool (&swbm_trie_pool, sizeof(struct trie), 2048);
 	create_mem_pool (&swbm_branch_pool, ALPHABETSIZE*sizeof(struct trie *), 1024);
 	create_mem_pool (&swbm_trieobj_pool, sizeof(struct trieobj), 512);

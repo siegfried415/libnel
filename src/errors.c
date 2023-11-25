@@ -78,7 +78,6 @@ void nel_trace (struct nel_eng *eng, char *message, ...)
 /*****************************************************************************/
 int nel_diagnostic (struct nel_eng *eng, char *message, ...)
 {
-	//char buffer[4096];
 	va_list args;
 
 	if ( eng && eng->verbose_level >= NEL_DIAG_LEVEL 
@@ -91,12 +90,7 @@ int nel_diagnostic (struct nel_eng *eng, char *message, ...)
 		/*******************************************/
 		nel_lock (&nel_error_lock);
 
-
-		//sprintf(buffer, message, args);
-		//write(2, buffer, strlen(buffer));
-
 		nel_do_print (stderr, message, args);
-		//fprintf (stderr, "\n");
 
 		/*************************/
 		/* exit critical section */
@@ -161,12 +155,10 @@ int nel_overwritable (struct nel_eng *eng, char *message, int arg1)
 /* input filename and line number, and then returns without incrementing     */
 /* eng->xxx->error_ct.                                                        */
 /*****************************************************************************/
-int nel_warning (struct nel_eng *eng, int type, char *filename, int line, char *message, /*...*/ va_list args)
+int nel_warning (struct nel_eng *eng, int type, char *filename, int line, char *message,  va_list args)
 {
-	//va_list args;
 
 	if ( eng->verbose_level >= NEL_WARN_LEVEL &&  message != NULL) {
-		//va_start (args, message);
 
 		/*******************************************/
 		/* error message i/o is a critical section */
@@ -187,9 +179,8 @@ int nel_warning (struct nel_eng *eng, int type, char *filename, int line, char *
 		/* exit critical section */
 		/*************************/
 		nel_unlock (&nel_error_lock);
-
-		//va_end (args);
 	}
+
 	return (0);
 }
 
@@ -199,12 +190,10 @@ int nel_warning (struct nel_eng *eng, int type, char *filename, int line, char *
 /* nel_error () prints out an error message, together with the current input  */
 /* filename and line number, increments eng->xxx->error_ct, and returns.      */
 /*****************************************************************************/
-int nel_error (struct nel_eng *eng, int type, char *filename, int line, char *message, /*...*/ va_list args)
+int nel_error (struct nel_eng *eng, int type, char *filename, int line, char *message, va_list args)
 {
-	//va_list args;
 	
 	if ( eng && eng->verbose_level >= NEL_ERROR_LEVEL &&  message != NULL) {
-		//va_start (args, message);
 
 		/*******************************************/
 		/* error message i/o is a critical section */
@@ -221,7 +210,6 @@ int nel_error (struct nel_eng *eng, int type, char *filename, int line, char *me
 		/* exit critical section                  */
 		/******************************************/
 		nel_unlock (&nel_error_lock);
-		//va_end (args);
 	}
 
 	return (0);
@@ -234,12 +222,10 @@ int nel_error (struct nel_eng *eng, int type, char *filename, int line, char *me
 /* on to the next statement.  when scanning the stab strings, the stmt error */
 /* jump is set to to continue with the next string.                          */
 /*****************************************************************************/
-int nel_stmt_error (struct nel_eng *eng, int type, char *filename, int line, struct nel_JMP_BUF *stmt_err_jmp, char *message, /*...*/ va_list args)
+int nel_stmt_error (struct nel_eng *eng, int type, char *filename, int line, struct nel_JMP_BUF *stmt_err_jmp, char *message, va_list args)
 {
-	//va_list args;
 
 	if ( eng && eng->verbose_level >= NEL_ERROR_LEVEL && message != NULL) {
-		//va_start (args, message); 
 
 		/*******************************************/
 		/* error message i/o is a critical section */
@@ -257,7 +243,6 @@ int nel_stmt_error (struct nel_eng *eng, int type, char *filename, int line, str
 		/*****************************************/
 		nel_unlock (&nel_error_lock);
 
-		//va_end (args);
 	}
 
 	/*******************************************************/
@@ -283,12 +268,10 @@ int nel_stmt_error (struct nel_eng *eng, int type, char *filename, int line, str
 /* after the end of the current block.  when scanning the stab strings, the  */
 /* block error jump is set to abandon scanning and return.                   */
 /*****************************************************************************/
-int nel_block_error (struct nel_eng *eng, int type, char *filename, int line, struct nel_JMP_BUF *block_err_jmp, char *message, /*...*/ va_list args)
+int nel_block_error (struct nel_eng *eng, int type, char *filename, int line, struct nel_JMP_BUF *block_err_jmp, char *message,  va_list args)
 {
-	//va_list args;
 
 	if ( eng && eng->verbose_level >= NEL_ERROR_LEVEL &&  message != NULL) {
-		//va_start (args, message);
 
 		/*******************************************/
 		/* error message i/o is a critical section */
@@ -306,7 +289,6 @@ int nel_block_error (struct nel_eng *eng, int type, char *filename, int line, st
 		/******************************************/
 		nel_unlock (&nel_error_lock);
 
-		//va_end (args);
 	}
 
 	/********************************************************/
@@ -343,12 +325,10 @@ int nel_block_error (struct nel_eng *eng, int type, char *filename, int line, st
 /* is set, then nel_fatal_error () nel_longjmps back to the top-level routine, */
 /* which returns to the caller.                                              */
 /*****************************************************************************/
-int nel_fatal_error (struct nel_eng *eng, int type, char *filename, int line, struct nel_JMP_BUF *return_pt,  char *message, /*...*/ va_list args)
+int nel_fatal_error (struct nel_eng *eng, int type, char *filename, int line, struct nel_JMP_BUF *return_pt,  char *message, va_list args)
 {
-	//va_list args;
 
 	if ( eng && eng->verbose_level >= NEL_FATAL_LEVEL && message != NULL) {
-		//va_start (args, message);
 
 		if ((eng != NULL) && (type!= nel_R_NULL) && (filename!= NULL)){
 			fprintf (stderr, "\"%s\", line %d: ", filename, line);
@@ -356,7 +336,6 @@ int nel_fatal_error (struct nel_eng *eng, int type, char *filename, int line, st
 		nel_do_print (stderr, message, args);
 		fprintf (stderr, "\n");
 
-		//va_end (args);
 	}
 
 	/********************************************/

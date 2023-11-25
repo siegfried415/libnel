@@ -13,11 +13,11 @@
 #include "type.h"
 #include "stmt.h"
 #include "opt.h"
+#include "action.h"
+#include "prod.h"
 
-//wyong, 20230731 
 //#include "comp.h"
 
-#include "prod.h"
 
 /************************************************************************/
 /* will create a func call					 	*/
@@ -185,7 +185,6 @@ int do_class_stmt_alloc(struct nel_eng *eng, nel_expr *expr, nel_stmt *output_st
 
 				sub_stmt_head->branch.true_branch = temp_stmt;
 
-				//wyong, 2006.7.11
 				//nel_stmt_link(sub_stmt_tail, end_stmt);
 				*stmt_head = sub_stmt_head;
 				*stmt_tail = sub_stmt_tail;
@@ -272,7 +271,6 @@ int do_class_stmt_alloc(struct nel_eng *eng, nel_expr *expr, nel_stmt *output_st
 
 				pre_func_stmt->branch.true_branch = post_func_stmt;
 
-				//wyong, 2006.7.11
 				//nel_stmt_link(pre_func_stmt, end_stmt);
 				*stmt_head = *stmt_tail = pre_func_stmt;
 
@@ -285,14 +283,11 @@ int do_class_stmt_alloc(struct nel_eng *eng, nel_expr *expr, nel_stmt *output_st
 						0, 	/* line num */
 							1,	/* level */
 						expr,
-						/*bugfix, wyong, 2006.5.25 */
 						output_stmt,	/* true stmt */
 							NULL);	/* false stmt */
 		 		if (!stmt) 
 					return -1;
 
-				//wyong, 2006.7.11
-				//nel_stmt_link(stmt, end_stmt);
 				*stmt_head = *stmt_tail = stmt;
 
 #if 0
@@ -444,7 +439,7 @@ nel_type *class_func_type_alloc(struct nel_eng *eng, struct lritem *it, nel_symb
 	struct nel_RHS *rhs = NULL; 
 	char name[16];
 
-	/* create $0 wyong, 2006.6.20 */
+	/* create $0 */
 	if(eng->startSymbol && eng->startSymbol->type) {
 		type = eng->startSymbol->type->event.descriptor;
 	}else {
@@ -457,7 +452,7 @@ nel_type *class_func_type_alloc(struct nel_eng *eng, struct lritem *it, nel_symb
 
 	/* if it is kernel(it->offset == 0), we needn't do this process, 
 	otherwise, create NULL param for pos */ 
-	for(i = 1; i<=it->offset; i++) { /* wyong, 2006.6.1 */
+	for(i = 1; i<=it->offset; i++) { 
 		type = nel_pointer_type;
 		sprintf(name, "$%d", i);
 		symbol = nel_static_symbol_alloc(eng, nel_insert_name(eng,name), type, NULL, nel_C_FORMAL, nel_lhs_type(type), nel_L_NEL, 1);
@@ -467,7 +462,6 @@ nel_type *class_func_type_alloc(struct nel_eng *eng, struct lritem *it, nel_symb
 
 	/*get rhs according to it->dprod->dot*/ 
 	for( i=it->offset+1, rhs=it->dprod->prod->type->prod.rhs; i <= (it->offset + it->dprod->dot + 1); i++, rhs= rhs->next) {
-		/* wyong, 2006.6.1 */
 		type = rhs->symbol->type->event.descriptor;	
 		sprintf(name, "$%d", i);
 		symbol = nel_static_symbol_alloc(eng, nel_insert_name(eng,name), type, NULL, nel_C_FORMAL, nel_lhs_type(type), nel_L_NEL, 1);
@@ -547,14 +541,12 @@ nel_symbol *class_func_symbol_alloc(struct nel_eng *eng, char *name, nel_type *t
 
 	func = nel_static_symbol_alloc(eng, nel_insert_name(eng, name),type,(char *)start, nel_C_NEL_FUNCTION, nel_lhs_type(type), nel_L_NEL, 0);
 
-	//wyong, 2006.2.20 
         nel_insert_symbol (eng, func, eng->nel_static_ident_hash);
 
 	
 	return func;
 }
 
-//wyong, 20230731 
 int create_classify_func (struct nel_eng *eng, nel_symbol *symbol)
 {
         eng->compile_level = 0;
@@ -566,10 +558,10 @@ int create_classify_func (struct nel_eng *eng, nel_symbol *symbol)
                 return 0;
         }
 
-        if(eng->compile_level < 2) {    //wyong, 2006.3.22
+        if(eng->compile_level < 2) { 
                 nel_stmt *head, *tail;
                 ast_to_intp(eng, (nel_stmt *)symbol->value, &head, &tail);
-                symbol->value = head;
+                symbol->value = (char *)head;
                 return 0;
         }
 
@@ -578,7 +570,6 @@ int create_classify_func (struct nel_eng *eng, nel_symbol *symbol)
 
 
 
-//wyong, 20230731 
 //int term_classify_compile(struct nel_eng *eng)
 int create_term_classify_func (struct nel_eng *eng)
 {
@@ -593,7 +584,6 @@ int create_term_classify_func (struct nel_eng *eng)
 				encodeSymbolId(eng, tid, nel_C_TERMINAL)))) { 
 			
 				// compile the func to machine code directly 
-				//wyong, 20230731 
 				//if ( comp_compile_func(eng, func) < 0 ){
 				if ( create_classify_func(eng, func) < 0 ){
 					printf("error in compiling %s\n", func->name );
@@ -606,7 +596,6 @@ int create_term_classify_func (struct nel_eng *eng)
 	return 0;
 }
 
-//wyong, 20230731 
 //int nonterm_classify_compile(struct nel_eng *eng)
 int create_nonterm_classify_func(struct nel_eng *eng)
 {
@@ -621,7 +610,6 @@ int create_nonterm_classify_func(struct nel_eng *eng)
 				encodeSymbolId(eng, nid, nel_C_NONTERMINAL)))) {
 				
 				// compile the func to machine code directly 
-				//wyong, 20230731 
 				//if ( comp_compile_func(eng, func) < 0 ) {
 				if ( create_classify_func (eng, func) < 0 ) {
 					printf("error in compiling %s\n", func->name );
@@ -695,8 +683,7 @@ output_next_term:
 
 					/* we use this technique to elimate 
 					classification before reduce, hope this
-					will speed up parser largely
-					wang.yong 2003.10.31 */ 
+					will speed up parser largely */ 
 					expr = NULL;
 #endif
 				}
@@ -731,7 +718,6 @@ output_next_term:
 				__append_entry_to(&list, this);
 
 
-				/* wyong, 2004.5.22, I corrected the bug */
 				term->_flag = 1; 
 				count++;
 
@@ -758,8 +744,6 @@ output_next_term:
 			while(list){
 				struct nel_LIST *next = list->next;
 				if(list->symbol->data ){
-					/* wyong, the following line is wrong, 2004.5.26  */
-					//nel_expr_dealloc(list->symbol->expr);
 					list->symbol->value = list->symbol->data;
 					list->symbol->data = NULL;
 				}
@@ -899,7 +883,7 @@ output_next_nonterm:
 }
 	
 
-void emit_term_class(struct nel_eng *eng /*,FILE *fp*/ )
+void emit_term_class(struct nel_eng *eng )
 {
 	FILE *fp;
 	if(eng->termclass_debug_level) {
@@ -920,7 +904,7 @@ void emit_term_class(struct nel_eng *eng /*,FILE *fp*/ )
 	return ;
 }
 
-void emit_nonterm_class(struct nel_eng *eng/*,FILE *fp*/ )
+void emit_nonterm_class(struct nel_eng *eng )
 {
 	FILE *fp;
 	if(eng->nontermclass_debug_level) {
@@ -956,12 +940,11 @@ int class_alloc(struct nel_eng *eng)
 	emit_term_class(eng);
 	emit_nonterm_class(eng);
 
-	/* wyong, 2006.3.13 compile the classify function to :
+	/* compile the classify function to :
 	1, intpcode, (eng->compile_level == 0)
 	2, machine code, (eng->compile_level == 2)
 	3, syntax check only, do nothing, (eng->compile_level == 1)
 	*/ 
-	//wyong, 20230731 
 	//term_classify_compile(eng);
 	//nonterm_classify_compile(eng);
 	create_term_classify_func(eng);
@@ -970,12 +953,10 @@ int class_alloc(struct nel_eng *eng)
 
 	/* evt_free_func and reduction should are not compiled at 
 	parser time (in nel.y), because generator would modify them */
-	//bugfix, wyong, 2006.4.28 
 	//evt_free_func_compile(eng);
 	reduction_action_compile(eng);
 
 	// link and load only when eng->compile_level == 2 
-	// wyong, 20230803 
 	//comp_relocate(eng);
 	
 	return 0;

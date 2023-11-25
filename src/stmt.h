@@ -49,13 +49,11 @@ typedef union nel_STMT {
                 nel_S_token type;
                 char *filename;			/* keep source file name and	*/
                 int line;				/* line # for error messages.	*/
-				int visited;	//andded by zhangbin, 2006-6-20, to avoid looping infinetely
+				int visited;	// to avoid looping infinetely
 				
-				//added by zhangbin, 2006-6-13
 				int compiled;
 				int addr;
 				int patch_addr;
-				//end
 				
                 union nel_STMT *next;		/* for use in free list		*/
         }
@@ -68,13 +66,11 @@ typedef union nel_STMT {
                 nel_S_token type;
                 char *filename;
                 int line;
-				int visited;	//andded by zhangbin, 2006-6-20, to avoid looping infinetely				
+				int visited;	//to avoid looping infinetely				
 				
-				//added by zhangbin, 2006-6-13
 				int compiled;
 				int addr;
 				int patch_addr;
-				//end
 				
                 struct nel_SYMBOL *symbol;
                 union nel_STMT *next;
@@ -89,13 +85,11 @@ typedef union nel_STMT {
                 nel_S_token type;
                 char *filename;
                 int line;
-				int visited;	//andded by zhangbin, 2006-6-20, to avoid looping infinetely
+				int visited;	//to avoid looping infinetely
 				
-				//added by zhangbin, 2006-6-13
 				int compiled;
 				int addr;
 				int patch_addr;
-				//end
 				
                 union nel_EXPR *expr;
                 union nel_STMT *next;
@@ -110,13 +104,11 @@ typedef union nel_STMT {
                 nel_S_token type;
                 char *filename;
                 int line;
-				int visited;	//andded by zhangbin, 2006-6-20, to avoid looping infinetely
+				int visited;	
                 				
-				//added by zhangbin, 2006-6-13
 				int compiled;
 				int addr;
 				int patch_addr;
-				//end
 				
 				union nel_EXPR *retval;
                 union nel_STMT *next;
@@ -131,20 +123,18 @@ typedef union nel_STMT {
                 nel_S_token type;
                 char *filename;
                 int line;
-				int visited;	//andded by zhangbin, 2006-6-20, to avoid looping infinetely
+				int visited;
 				
-				//added by zhangbin, 2006-6-13
 				int compiled;
 				int addr;
 				int patch_addr;
-				//end
 				
 				int level;
                 union nel_EXPR *cond;
                 union nel_STMT *true_branch;
                 union nel_STMT *false_branch;
 
-                union nel_STMT *next;	/* wyong, 2004.10.17 */
+                union nel_STMT *next;	
 				
         }
         branch;
@@ -153,24 +143,20 @@ typedef union nel_STMT {
                 nel_S_token type;
                 char *filename;
                 int line;
-				int visited;	//andded by zhangbin, 2006-6-20, to avoid looping infinetely
+				int visited;
 				
-				//added by zhangbin, 2006-6-13
 				int compiled;
 				int addr;
 				int patch_addr;
-				//end
 				
 				int level;
                 union nel_EXPR *cond;
                 union nel_STMT *body;
                 union nel_STMT *next;
-				//added by zhangbin, 2006-6-15
 				union nel_STMT *break_target;
 				union nel_STMT *continue_target;
 				int break_patch;
 				int continue_addr;
-				//end
 				
         }
         while_stmt;
@@ -180,13 +166,11 @@ typedef union nel_STMT {
                 nel_S_token type;
                 char *filename;
                 int line;
-				int visited;	//andded by zhangbin, 2006-6-20, to avoid looping infinetely
+				int visited;
 				
-				//added by zhangbin, 2006-6-13
 				int compiled;
 				int addr;
 				int patch_addr;
-				//end
 				
 				int level;
                 union nel_EXPR *init;
@@ -194,13 +178,11 @@ typedef union nel_STMT {
                 union nel_EXPR *inc;
                 union nel_STMT *body;
                 union nel_STMT *next;
-				//added by zhangbin, 2006-6-15
 				union nel_STMT *break_target;
 				union nel_STMT *continue_target;
 				int break_patch;
 				int continue_addr;
 				int continue_patch;
-				//end
 				
         }
         for_stmt;
@@ -215,13 +197,11 @@ typedef union nel_STMT {
                 nel_S_token type;
                 char *filename;
                 int line;
-				int visited;	//andded by zhangbin, 2006-6-20, to avoid looping infinetely
+				int visited;
 				
-				//added by zhangbin, 2006-6-13
 				int compiled;
 				int addr;
 				int patch_addr;
-				//end
 				
                 int level;
                 union nel_STMT *next;
@@ -229,7 +209,6 @@ typedef union nel_STMT {
         }
         target;
 
-		//added by zhangbin, 2006-5-20
 		struct
 		{
 			nel_S_token type;
@@ -237,17 +216,14 @@ typedef union nel_STMT {
 			int line;
 			int visited;
 				
-			//added by zhangbin, 2006-6-13
 			int compiled;
 			int addr;
 			int patch_addr;
-			//end
 			
-			int level;	//add by zhangbin, 2006-11-22
+			int level;
 			union nel_STMT *goto_target;
 			union nel_STMT *next;
 		}goto_stmt;
-		//end
 
 } nel_stmt;
 
@@ -306,7 +282,7 @@ int nel_stmt_dup( struct nel_eng *, nel_stmt *, nel_stmt **, nel_stmt **);
 int ast_to_intp( struct nel_eng *, nel_stmt *, nel_stmt **, nel_stmt **);
 int evt_stmt_update_dollar(struct nel_eng *, nel_stmt *, int, int );
 
-//added by zhangbin, 2006-7-19
+nel_stmt *nel_stmt_tail(nel_stmt *head); 
 void stmt_dealloc(struct nel_eng *eng);
-//end
+
 #endif

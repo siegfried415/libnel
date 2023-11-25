@@ -1,13 +1,4 @@
-/* 
- * $Header: /home/cvsroot/ns210501/baseline/src/official/linux/user/engine/include/charset/conv_char.h,v 1.1.1.1 2005/12/27 06:40:40 zhaozh Exp $
- */
 
-/* 
- * conv_char.h 
- *
- * shiyan
- * 2002.5.17
- */
 #ifndef __CONV_CHAR_H__
 #define	__CONV_CHAR_H__
 
@@ -28,7 +19,7 @@
 #define CHARSET_MODE_UTF8               (1<<UTF_8)
 
 
-#if 0	 //xiayu 2005.6.2
+#if 0	 
 
 	/* charset and encoding type's ID */
 
@@ -46,7 +37,7 @@
 	#define		ORIGINAL	9  		// I define it ,for original state.
 	#define		CHARSET_SJIS	10		// CHARSET SJIS
 #else
-	/* xiayu: for nel cannot see macro, which is concep of C language preprocessor,
+	/* for nel cannot see macro, which is concep of C language preprocessor,
 		  but can see enum */
 	enum charset_type {
 
@@ -88,23 +79,21 @@ struct coding_type {
 };
 
 struct conv_fun {
-	int		m_coding_type_in;		//输入给函数的字符串的编码类型号
-	int 	m_coding_type_out;		//函数输出的字符串的编码类型号
-	int 	(*m_pfun)();			//将输入类型转换到输出类型所需要调用的函数
-	char* 	m_pfile_name;			//在调用函数时，函数中需要的文件名称
-      								//详细说明见下面。
+	int		m_coding_type_in;	
+	int 	m_coding_type_out;		
+	int 	(*m_pfun)();			
+	char* 	m_pfile_name;			
 };
 
 struct conv_arg{
-	u_bit_8*	m_pstr_in;			//输入的字符串；
-	u_bit_8*	m_pstr_out;			//输出的字符串；
-	u_bit_32	m_len_in;			//输入的字符串的长度；
-	u_bit_32	m_len_out;			//输出的字符串的长度；
-	u_bit_8*	m_pfile_name;		//当对附件进行编解码操作时，保存附件的名称
-	u_bit_32	m_flag;				//保存uuencode编解码时的mode及回车类型。
-									//最高位是回车类型(1为'\n'，0为"\r\n")
-									//低9位是mode的值。
+	u_bit_8*	m_pstr_in;		
+	u_bit_8*	m_pstr_out;	
+	u_bit_32	m_len_in;
+	u_bit_32	m_len_out;
+	u_bit_8*	m_pfile_name;
+	u_bit_32	m_flag;		
 };
+
 /*
 struct conv_tab{
 	u_bit_16 m_src

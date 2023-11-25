@@ -12,23 +12,14 @@
 #define ENGINE_H
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <setjmp.h>
 #include <elf.h>
 
-/* wyong, 20230804 
-#include "stream.h"
-#include "match.h"
-#include "shellcode.h"
-*/
-
-/* wyong, 2006.2.27 */
-#include <stdlib.h>
 void *calloc(size_t nmemb, size_t size);
 void *malloc(size_t size);
 void free(void *ptr);
 void *realloc(void *ptr, size_t size);
-
-
 
 
 /*******************/
@@ -292,26 +283,23 @@ struct nel_eng {
 	struct eng_intp *intp;
 	struct eng_comp *comp;
 
-	//added by zhangbin, 2006-7-26, to support eng restart
 	char *prog_name;
 	char **nel_file_name;
 	int nel_file_num;
-	//end
 };
 
 
 /*********************************************************/
 /* declarations for the routines defined in "engine.c". */
 /*********************************************************/
-extern void nel_init (struct nel_eng *eng);
-extern struct nel_eng *nel_eng_alloc(void);
-extern void  nel_eng_dealloc(struct nel_eng *eng);
+void nel_init (struct nel_eng *eng);
+struct nel_eng *nel_eng_alloc(void);
+void  nel_eng_dealloc(struct nel_eng *eng);
 
-extern int  nel_file_parse(struct nel_eng *, int, char **);
-extern int stab_file_parse(struct nel_eng *, char *);
+int  nel_file_parse(struct nel_eng *, int, char **);
+int stab_file_parse(struct nel_eng *, char *);
+int nel_eng_restart(struct nel_eng *eng);
+char *nel_R_name (register nel_R_token code);
 
-//added by zhangbin, 2006-7-26
-extern int nel_eng_restart(struct nel_eng *eng);
-//end
 #endif /* ENGINE_H */
 

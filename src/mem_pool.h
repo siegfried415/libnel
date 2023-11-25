@@ -31,9 +31,9 @@ typedef struct ObjPool ObjPool_t;
 #define TO_OBJ(p) ((void *)p - sizeof(PoolNode_t *))
  
 
-inline void *alloc_mem (ObjPool_t *objPool);
-inline int free_mem (ObjPool_t *objPool, void *obj);
-inline int create_mem_pool (ObjPool_t *objPool, int elmLen, int maxLen);
-inline int destroy_mem_pool (ObjPool_t *objPool);
+void *alloc_mem (ObjPool_t *objPool);
+int free_mem (ObjPool_t *objPool, void *obj);
+int create_mem_pool (ObjPool_t *objPool, int elmLen, int maxLen);
+int destroy_mem_pool (ObjPool_t *objPool);
 
 #endif

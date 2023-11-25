@@ -1,18 +1,7 @@
-/*
- * swbm_exec.c
- * $Id: swbm_exec.c,v 1.2 2006/03/17 05:50:16 wyong Exp $
- */
-
 #include <stdio.h>
 
-//#include "stream.h"
-//#include "memwatch.h"
 #include "nlib/match/swbm.h"
 #include "intlist.h"
-
-#if 0
-#include "ptn.h"
-#endif
 #include "exec.h"
 
 #define DEBUGING 0
@@ -192,8 +181,7 @@ int swbm_match(			unsigned char *text,
 	register struct trieobj *rear_tree;
 	//register struct rule_list *rlist;
 
-	/*NOTE,NOTE,NOTE, wyong, 20090609 */	
-	//xiayu 2005.12.2 when text is null
+	//when text is null
 	if (text == NULL || text_len == 0) {
 		return 0;
 	}

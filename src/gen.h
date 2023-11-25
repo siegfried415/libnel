@@ -1,29 +1,10 @@
 #ifndef GEN_H
 #define GEN_H
 
+#include "itemset.h"
 #include "type.h"
 #include "dprod.h"
-//#include "item.h"
-#include "itemset.h"
 
-//struct itemset;
-
-#if 0
-typedef unsigned int StateId;
-
-
-/******************************LR stuff **************************************/
-// encodes an action in 'action' table; see 'actionTable'
-typedef int ActionEntry;
-
-// encodes a destination state in 'gotoTable'
-typedef unsigned int GotoEntry;
-
-// names a nonterminal using an index
-//typedef int NtIndex;
-//typedef unsigned int StateId;
-typedef int SymbolId;
-#endif
 
 #define TOK_NUMS(eng) (eng->numTerminals + eng->numNonterminals + 1 )
 #define SYM_OF_TERM_CLASS(eng, sid, tid ) (eng->classTable[sid * TOK_NUMS(eng) + eng->numNonterminals + tid].classifier)
@@ -41,7 +22,6 @@ typedef int SymbolId;
 #define actionEntry(eng, state, termId) eng->actionTable[ (state) * eng->numTerminals+(termId)]
 #define defaultActionEntry(eng, state) eng->default_action_tbl[state]
 
-/* wyong, 2006.3.2 */
 #define reduceEntry(eng, state) eng->stateTable[state].reduce
 #define gotoEntry(eng, state, nonTermId) eng->gotoTable[(state) * eng->numNonterminals+(nonTermId)]
 #define encodeSymbolId(eng, id, type) ( ((type)== nel_C_TERMINAL) ? \
@@ -163,8 +143,7 @@ extern int nel_gen_init(struct nel_eng *eng);
 extern int gen_warning(struct nel_eng *, char *, ...);
 extern int gen_error (struct nel_eng *, char *, ...);
 
-//added by zhangbin, 2006-7-19
 void gen_dealloc(struct nel_eng *eng);
-//end
+int gen_init(struct nel_eng *eng);
 
 #endif

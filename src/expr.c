@@ -13,16 +13,16 @@
 #include <setjmp.h>
 #include <string.h>
 
-#include <engine.h>
-#include <errors.h>
-#include <io.h>
-#include <type.h>
-#include <sym.h>
-#include <expr.h>
+#include "engine.h"
+#include "errors.h"
+#include "io.h"
+#include "type.h"
+#include "sym.h"
+#include "expr.h"
 #include "intp.h"
-#include <lex.h>
+#include "lex.h"
 #include "mem.h"
-
+#include "parser.h" 
 
 /*****************************************************************************/
 /* nel_O_name () returns the string that is the identifier for <code>, a */
@@ -238,7 +238,7 @@ nel_expr *nel_expr_alloc (struct nel_eng *eng, nel_O_token opcode, va_alist)
 		retval->symbol.symbol = va_arg (args, nel_symbol*);
 		break;
 
-	/* wyong 
+	/* 
 	case nel_O_NEL_SYMBOL:
 		retval->nel_symbol.symbol = va_arg (args, nel_symbol *);
 		break;
@@ -578,7 +578,6 @@ int nel_expr_diff(nel_expr *e1, nel_expr *e2)
 	/* terminal node - a symbol */
 	/****************************/
 	case nel_O_SYMBOL:
-		/* wyong, 2004.5.25, 2004.5.27 */
 		if(e1->symbol.symbol->type->simple.type 
 			!= e2->symbol.symbol->type->simple.type )
 			return 1;
@@ -1391,29 +1390,6 @@ void emit_expr(FILE *fp, union nel_EXPR *expr)
 		/* terminal node - a symbol */
 		/****************************/
 		case nel_O_SYMBOL:
-			//{
-				//nel_symbol *symbol = expr->symbol.symbol;
-				//union nel_TYPE *type ;
-				//if(!symbol)
-				//	break;
-				//
-				//type = symbol->type;
-				//if(type){
-				//	if(type->simple.type == nel_D_ARRAY){
-				//		fprintf(fp, "\"");
-				//		nel_print_symbol_name(fp, expr->symbol.symbol, 0);
-				//		fprintf(fp, "\"");
-				//		break;
-				//	}
-				//}
-				//
-				//if (expr->symbol.symbol->name){
-				//	nel_print_symbol_name(fp, expr->symbol.symbol, 0);
-				//}
-				//else 
-				//	fprintf(fp, "%d", *expr->symbol.symbol->value);
-			//}
-
 			emit_symbol(fp,expr->symbol.symbol);
 			break;
 
@@ -1430,26 +1406,13 @@ void emit_expr(FILE *fp, union nel_EXPR *expr)
 		case nel_O_POST_INC:
 		case nel_O_PRE_DEC:
 		case nel_O_PRE_INC:
-			/* wyong, 2004.6.23 */
 			fprintf(fp, "%c", *((char *)nel_O_string(expr->gen.opcode)));
 			emit_expr (fp, expr->unary.operand);
 			break;
 
 		case nel_O_DEREF:
 			{
-				//nel_expr *tmp;
-				//if(tmp = expr->unary.operand) {
-				//	if(tmp->gen.opcode == nel_O_MEMBER ) {
-				//		emit_expr (fp, tmp->member.s_u);
-				//		fprintf(fp, "->" );
-				//		emit_symbol(fp, tmp->member.member);
-				//		break;
-				//	}
-				//}
-				//fprintf(fp, "(*");
-
 				emit_expr (fp, expr->unary.operand);
-				//fprintf(fp, "->");
 			}
 			break;
 
@@ -1570,16 +1533,12 @@ void emit_expr(FILE *fp, union nel_EXPR *expr)
 	}
 }
 
-//added by zhangbin, 2006-5-25
 //find if a expr contains a function call, 1 for yes, 0 for no
-//wyong, 20230803 
-//inline 
 int expr_contain_funcall(struct nel_eng *eng, nel_expr *expr)
 {
 	nel_expr_list *list=NULL;
 	
-	if(!expr)
-	{
+	if(!expr) {
 		parser_stmt_error(eng, "NULL expr");
 		return 0;
 	}
@@ -1662,10 +1621,9 @@ int expr_contain_funcall(struct nel_eng *eng, nel_expr *expr)
 	default:
 		parser_stmt_error(eng, "illegal expr");
 		return 0;
-	}//end of switch
+	}
 }
 
-//added by zhangbin, 2006-5-25
 //evaluate the type of a expression
 nel_type* eval_expr_type(struct nel_eng *eng, nel_expr *expr)
 {
@@ -1678,8 +1636,7 @@ nel_type* eval_expr_type(struct nel_eng *eng, nel_expr *expr)
 	nel_symbol *symbol=NULL;
 	nel_expr_list *expr_list=NULL;
 	
-	if(!expr)
-	{
+	if(!expr) {
 		parser_stmt_error(eng, "NULL expr");
 		return NULL;
 	}
@@ -2028,11 +1985,11 @@ nel_type* eval_expr_type(struct nel_eng *eng, nel_expr *expr)
 
 		expr_list = expr->funcall.args;
 		lt = eval_expr_type(eng, expr->funcall.func);
-		if(!lt || lt->simple.type != nel_D_FUNCTION) {	//modified by zhangbin, 2006-12-5, "&&"=>"||"
+		if(!lt || lt->simple.type != nel_D_FUNCTION) {	
 			parser_stmt_error(eng, "illegal expr: bad func");
 			return NULL;
 		}
-#if 1
+
 		list = lt->function.args;
 		while(list) {
 			if(!expr_list) {
@@ -2045,7 +2002,6 @@ nel_type* eval_expr_type(struct nel_eng *eng, nel_expr *expr)
 				return NULL;
 			}
 
-			/* wyong, 2006.6.16 */
 			if(rt->simple.type == nel_D_EVENT) {
 				if (list->symbol->type->simple.type != nel_D_EVENT){
 					parser_stmt_error(eng, "illegal expr: pass argument %s type not match", list->symbol->name);
@@ -2064,7 +2020,7 @@ nel_type* eval_expr_type(struct nel_eng *eng, nel_expr *expr)
 			parser_stmt_error(eng, "illegal expr: more arguments than function definition");
 			return NULL;
 		}
-#endif
+
 		return lt->function.return_type;
 		break;
 
@@ -2142,35 +2098,33 @@ nel_type* eval_expr_type(struct nel_eng *eng, nel_expr *expr)
 	}
 }
 
-//added by zhangbin, 2006-7-19
 //call nel_dealloca to free expr chunk link, 
 //after calling this function, all expr pointer should be illegal!!!!!!
 void expr_dealloc(struct nel_eng *eng)
 {
-	while(nel_expr_chunks)
-	{
+	while(nel_expr_chunks) {
 		nel_expr_chunk *chunk = nel_expr_chunks->next;
 		nel_dealloca(nel_expr_chunks->start); 
 		nel_dealloca(nel_expr_chunks); 
 		nel_expr_chunks = chunk;
 	}
-	nel_exprs_next = nel_exprs_end = nel_free_exprs = NULL;
+	nel_exprs_next = NULL;
+	nel_exprs_end = NULL;
+	nel_free_exprs = NULL;
 }
-//end
 
-//added by zhangbin, 2006-7-19
 //call nel_dealloca to free expr list chunk link, 
 //after calling this function, all expr list pointer should be illegal!!!!!!
 void expr_list_dealloc(struct nel_eng *eng)
 {
-	while(nel_expr_list_chunks)
-	{
+	while(nel_expr_list_chunks) {
 		nel_expr_list_chunk *chunk = nel_expr_list_chunks->next;
 		nel_dealloca(nel_expr_list_chunks->start); 
 		nel_dealloca(nel_expr_list_chunks); 
 		nel_expr_list_chunks = chunk;
 	}
-	nel_expr_lists_next = nel_expr_lists_end = nel_free_expr_lists = NULL;
+	nel_expr_lists_next = NULL;
+	nel_expr_lists_end = NULL;
+	nel_free_expr_lists = NULL;
 }
-//end
 

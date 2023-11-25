@@ -1,8 +1,3 @@
-/*
- * swbm_trie.h
- * $Id: swbm_trie.h,v 1.2 2006/03/17 05:50:16 wyong Exp $
- */
-
 #ifndef __SWBM_TRIE_H
 #define __SWBM_TRIE_H
 
@@ -16,5 +11,6 @@
 #define TERMINAL		1
 #define NOT_TERMINAL		0 
 
+void init_swbm_tree_mem_pool (void);
 
 #endif

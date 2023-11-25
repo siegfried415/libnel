@@ -14,12 +14,10 @@
 #include "type.h"
 #include "stmt.h"
 #include "opt.h"
-
-//wyong, 20230731 
-//#include "comp.h"
-
 #include "prod.h"
 #include "action.h"
+
+//#include "comp.h"
 
 int reduction_action_compile(struct nel_eng *eng)
 {
@@ -32,7 +30,6 @@ int reduction_action_compile(struct nel_eng *eng)
 
 			// compile the func to machine code directly 
 			//if ( comp_compile_func(eng, func) < 0 ) {
-			//wyong, 20230803 
 			if ( create_classify_func ( eng, func) < 0 ) { 
 				printf("error in compiling %s\n", func->name );
 				return -1;
@@ -54,7 +51,7 @@ nel_type *reduction_action_functype_alloc(struct nel_eng *eng, struct nel_SYMBOL
 	int i;
 	char name[16];
 
-	/* create $0, wyong, 2006.6.20 */ 
+	/* create $0 */ 
 	if(eng->startSymbol && eng->startSymbol->type ) {
 		type = eng->startSymbol->type->event.descriptor;
 	}else {
@@ -111,15 +108,14 @@ nel_symbol *reduction_action_symbol_alloc(struct nel_eng *eng, FILE *fp, char *n
 	/* chain func body */
 	if(prev_stmt && head ){
 		nel_stmt_link(prev_stmt, head);
-
-		/*bugfix, wyong, 2006.4.27 */
 		tail_stmt = nel_stmt_tail(head);
 		prev_stmt = (tail_stmt) ? tail_stmt: head;
 	}
 
 
-	/* add return 0 stmt at last , wyong, 2006.3.10 */
-        value = nel_static_value_alloc(eng, sizeof(int), nel_alignment_of(int));        symbol =  nel_static_symbol_alloc(eng, "", nel_int_type,value, nel_C_CONST,0,0,0);
+	/* add return 0 stmt at last */
+        value = nel_static_value_alloc(eng, sizeof(int), nel_alignment_of(int)); 
+	symbol =  nel_static_symbol_alloc(eng, "", nel_int_type,value, nel_C_CONST,0,0,0);
         *((int *)symbol->value) = 0;
         expr = nel_expr_alloc(eng, nel_O_SYMBOL, symbol);
         stmt = nel_stmt_alloc(eng, nel_S_RETURN, "", 0, expr, NULL);
@@ -129,7 +125,7 @@ nel_symbol *reduction_action_symbol_alloc(struct nel_eng *eng, FILE *fp, char *n
 
 
 	func = nel_static_symbol_alloc(eng, nel_insert_name(eng,name),type, (char *)start, nel_C_NEL_FUNCTION, nel_lhs_type(type), nel_L_NEL, 0);
-        nel_insert_symbol (eng, func, eng->nel_static_ident_hash);//wyong, 2006.2.20 
+        nel_insert_symbol (eng, func, eng->nel_static_ident_hash);
 
 	if(eng->compile_level > 0){
 		/* output this func to temporary file */
@@ -152,7 +148,6 @@ int reduction_action_alloc(struct nel_eng *eng)
 			(nel_symbol *)reduction_action_symbol_alloc(eng, fp, 
 			name, reduction_action_functype_alloc(eng, prod), 
 				prod->type->prod.stmts );	
-			//wyong,2006.3.10
 	}
 
 	return 0;

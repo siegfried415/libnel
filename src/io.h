@@ -10,13 +10,8 @@
 #ifndef _NEL_I_O_
 #define _NEL_I_O_
 
-#include <type.h>
+#include "type.h"
 
-/* #include <stdio.h> */
-/* #include <varargs.h> */
-/* #include <nel_symbols.h> */
-/* #include <nel_types.h> */
-/* #include <nel_task_rec.h> */
 struct nel_SYMBOL;
 struct nel_BLOCK;
 struct nel_DIM;

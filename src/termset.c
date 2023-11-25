@@ -7,11 +7,9 @@
 #include "type.h"
 #include "termset.h"
 #include "sym.h"
-
-//added by zhangbin, 2006-7-17
 #include "mem.h"
+
 extern nel_lock_type nel_malloc_lock;
-//end
 
 void termset_clear(TerminalSet *ts)
 {
@@ -23,7 +21,7 @@ void termset_clear(TerminalSet *ts)
 void termset_reset(TerminalSet *ts, int numTerms)
 {
 	if (ts->bitmap) {
-		nel_free(ts->bitmap);	//nel_dealloca(ts->bitmap);	//free(ts->bitmap); zhangbin, 2006-7-17, zhangbin, 2006-10-12
+		nel_free(ts->bitmap);	
 	}
 	termset_init(ts, numTerms);
 }
@@ -126,11 +124,9 @@ int termset_iszero(struct nel_eng *eng, TerminalSet *ts)
 {
 	TerminalSet tmp;
 	termset_init(&tmp, eng->numTerminals);
-	//modified by zhangbin, 2006-7-18, to deal with memory leak
 	int i = termset_equal(ts, &tmp);
 	nel_dealloca(tmp.bitmap);
 	return i;
-	//end
 }
 
 void termset_init(TerminalSet *ts, int numTerms)
@@ -143,13 +139,7 @@ void termset_init(TerminalSet *ts, int numTerms)
 		 ---------------------------------------------*/
 		ts->numbers = numTerms;
 		ts->bitmapLen = (numTerms + 7) / 8;
-		//modified by zhangbin, 2006-7-17, malloc=>nel_malloc
-#if 1
 		nel_malloc(ts->bitmap, ts->bitmapLen, unsigned char);
-#else
-		ts->bitmap = (unsigned char *)malloc(ts->bitmapLen);
-#endif
-		//end, 2006-7-17
 		/*---------------------------------------------
 			Initially the set will be empty
 		 ---------------------------------------------*/

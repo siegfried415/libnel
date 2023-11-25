@@ -1,10 +1,6 @@
-/*
- * swbm_ptn.c
- * $Id: swbm_ptn.c,v 1.2 2006/03/17 05:50:16 wyong Exp $
- */
-
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "nlib/match/swbm.h"
 #include "intlist.h"

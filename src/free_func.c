@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "engine.h"
+#include "free_func.h"
 #include "type.h"
 #include "sym.h"
 #include "class.h"
@@ -14,14 +15,11 @@
 #include "type.h"
 #include "stmt.h"
 #include "opt.h"
+#include "prod.h"
 
-//wyong, 20230731
 //#include "comp.h"
 
-#include "prod.h"
-#include "free_func.h"
-
-/* wyong, 20210731 
+/* 
 int evt_free_func_compile(struct nel_eng *eng)
 {
 	unsigned long val;
@@ -52,9 +50,6 @@ int evt_free_func_compile(struct nel_eng *eng)
 		
 nel_symbol *evt_free_func_symbol_alloc(struct nel_eng *eng, FILE *fp, nel_symbol *func) 
 {
-	//wyong, 2006.2.20 
-        //nel_insert_symbol (eng, func, eng->nel_static_ident_hash);
-
 	if(eng->compile_level > 0){
 		/* output this func to temporary file */
 		//emit_symbol(fp, func);

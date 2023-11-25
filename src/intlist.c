@@ -1,15 +1,8 @@
-/*
- * cfl_int_list.c
- *
- */
-
 
 #include <stdio.h>
 #include <stdlib.h>
 
 #include "intlist.h"
-//#include "mem.h"
-//#include "memwatch.h"
 
 
 
@@ -134,7 +127,6 @@ int_list_t *remove_int_list(int_list_t *list, int val)
 		if(plist->val == val){
 			if(prev_plist) {
 				prev_plist->next = plist->next;
-				/* wyong, 2004.5.24, not plist*/
 				return list;	
 			}else {	/* the first one */
 				return plist->next;

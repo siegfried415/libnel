@@ -1,7 +1,3 @@
-/*
- * stab.c
- * $Id: stab.c,v 1.31 2006/10/14 15:52:01 wyong Exp $
- */
 /*****************************************************************************/
 /* This file, "nel_stab.c", contains routines which scan the symbol table     */
 /* (commonly referred to as "stab" strings) of the executable code (the file */
@@ -28,35 +24,25 @@
 #include <fcntl.h>
 #include <time.h>
 #include <ctype.h>
-#include <complex.h>	//added by zhangbin, 2006-4-28
+#include <complex.h>
 
-#include <engine.h>
-#include <errors.h>
-#include <type.h>
-#include <sym.h>
-#include <_stab.h>
-#include <io.h>
-#include <intp.h>
-//#include <intrns.h>
+#include "engine.h"
+#include "analysis.h" 
+#include "errors.h"
+#include "type.h"
+#include "sym.h"
+#include "_stab.h"
+#include "io.h"
+#include "intp.h"
 #include "mem.h"
-
-//added by zhangbin, 2006-6-1
 #include "evt.h"
-//eng
+#include "nlib.h"
+#include "peek.h" 
 
-//#include "peek_arg_link.h"	/* add by zhangbin , 2006.4.4 */
-//peek_arg_link_t *peek_arg_link_begin = NULL;
-//int global_set_peek_flag = 0;
-
-//added by zhangbin, 2006-4-28
 static int parse_complex_type(struct nel_eng *eng, const char **pp);
-//end add
-
 static FILE *stab_debug_file;
-
-
-/* bugfix, wyong, 20090512 */
 nel_stab_type *stab_remove_type (struct nel_eng *eng, register nel_stab_type *stab_type, register nel_stab_type **table, int max);
+
 /*
  
 The following figure shows the data structure constructed by the
@@ -547,592 +533,6 @@ int stab_fatal_error (struct nel_eng *eng, char *message, ...)
 	return (0);
 }
 
-//added by zhangbin, to print test info, 2006.4.3
-extern void PrintSymbolTable(const nel_symbol_table *table)
-{
-	nel_symbol *psymbol;
-	int scan_chain = 0;
-	if(!table)
-		return;
-	while(scan_chain < table->max)
-	{
-		if(!table->chains[scan_chain].symbols)
-		{
-			scan_chain++;
-			continue;
-		}
-		psymbol = table->chains[scan_chain].symbols;
-		while(psymbol)
-		{
-			printf("\tname:%s, type:%s\n", psymbol->name, nel_C_name(psymbol->class));	
-			psymbol = psymbol->next;
-		}
-		scan_chain++;	
-	}
-}
-
-extern void PrintAllSymbolTables(const struct nel_eng *eng)
-{
-	if(!eng)
-		return;
-		
-	printf("nel_static_name_hash:\n");
-	PrintSymbolTable(eng->nel_static_name_hash);
-	
-	printf("\nnel_static_ident_hash:\n");
-	PrintSymbolTable(eng->nel_static_ident_hash);	
-	
-	printf("\nnel_static_location_hash:\n");
-	PrintSymbolTable(eng->nel_static_location_hash);
-	
-	printf("\nnel_static_tag_hash:\n");
-	PrintSymbolTable(eng->nel_static_tag_hash);
-}
-
-static nel_symbol* FindNamedSymbol(char* name, char type, struct nel_eng* eng)
-{
-	if(!name || !eng)
-		return NULL;
-		
-	nel_symbol_table* table;
-	unsigned int hash_num;
-	switch(type)
-	{
-		case 'S':	//struct
-		case 'U':	//union
-		case 'E':	//enum
-			table = eng->nel_static_tag_hash;
-			hash_num = nel_hash_symbol(name, table->max);
-			break;
-		case 'P':	//pointer(a special type of global var.)
-		case 'F':	//global func.
-		case 'I':	//global var.
-		case 'T':	//typedef
-			table = eng->nel_static_ident_hash;
-			hash_num = nel_hash_symbol(name, table->max);
-			break;
-		default:
-			return NULL;	
-	}
-	
-	nel_symbol* psymbol = table->chains[hash_num].symbols;
-	while(psymbol)
-	{
-		if(strcmp(name, psymbol->name) == 0)
-			return psymbol;
-		psymbol = psymbol->next;
-	}
-	if(!psymbol)
-		psymbol = lookup_event_symbol(eng, name);	
-	return psymbol;
-}
-
-//added by zhangbin, 2006-4-6
-static void PrintDetailType(const nel_type *ptype)
-{
-	nel_list *plist = NULL;
-	nel_member *pmember = NULL;
-	if(!ptype)
-	{
-		printf("NULL type\n");
-		return;
-	}
-
-	printf(" %s %d %d", nel_D_name(ptype->simple.type), ptype->simple.size, ptype->simple.alignment);
-	
-	switch(ptype->simple.type)
-	{
-		case nel_D_ARRAY:
-			PrintDetailType(ptype->array.base_type);
-			break;
-		case nel_D_POINTER:
-			printf("<");
-			PrintDetailType(ptype->pointer.deref_type);
-			printf(" >");
-			break;
-		case nel_D_FUNCTION:
-			PrintDetailType(ptype->function.return_type);	//print func's return type
-			plist = ptype->function.args;
-			if(!plist)
-				break;
-			printf(" <");
-			while(plist)		//print func's every arg's type
-			{
-				PrintDetailType(plist->symbol->type);
-				plist = plist->next;
-				if(plist)
-					printf(",");
-			}
-			printf(" >");
-			break;
-		case nel_D_STRUCT:
-		case nel_D_UNION:
-			pmember = ptype->s_u.members;
-			if(!pmember || !pmember->symbol)	//modified by zhangbin, 2006-4-28, if(!pmember)=>if(!pmember || !pmember->symbol)
-				break;
-			printf("<");
-			while(pmember)		//print every member in struct or union
-			{
-				printf(" %d", pmember->offset);
-				PrintDetailType(pmember->symbol->type);
-				pmember = pmember->next;
-				if(pmember)
-					printf(",");
-			}
-			printf(" >");
-			break;
-		case nel_D_ENUM:
-			plist = ptype->enumed.consts;
-			printf("<");
-			while(plist)
-			{
-				printf(" %d", plist->value);
-				plist = plist->next;
-				if(plist)
-					printf(",");
-			}
-			printf(" >");
-			break;
-		case nel_D_TYPEDEF_NAME:
-			PrintDetailType(ptype->typedef_name.descriptor);
-			break;
-		case nel_D_STRUCT_TAG:
-		case nel_D_UNION_TAG:
-		case nel_D_ENUM_TAG:
-			PrintDetailType(ptype->tag_name.descriptor);
-			break;
-		case nel_D_EVENT:
-			PrintDetailType(ptype->event.descriptor);
-			break;
-		default:
-			break;
-	}//end of switch(ptype->simple.type)
-	return;
-}
-
-
-static void PrintGlobalVarInfo(const nel_symbol* psymbol)
-{
-	if(!psymbol)
-	{
-		printf(" NULL symbol\n");
-		return;	
-	}
-	
-	if(psymbol->class != nel_C_GLOBAL && psymbol->class != nel_C_NONTERMINAL)
-	{
-		printf(" %s's type is not nel_C_GLOBAL or nel_C_NONTERMINAL\n", psymbol->name);	
-		return;
-	}
-	
-	//added by zhangbin, 2006-4-6
-	printf("%s I:", psymbol->name);
-	PrintDetailType(psymbol->type);
-	printf("\n");
-	return;
-	//end 2006-4-6
-	
-//	printf("%s I: %s", psymbol->name, nel_D_name(psymbol->type->simple.type));
-//	switch(psymbol->type->simple.type)
-//	{
-//	case nel_D_ARRAY:	//type ident[10];
-//		printf(" %s\n", nel_D_name(psymbol->type->array.base_type->simple.type));
-//		break;
-//	case nel_D_POINTER:	//type *ident;
-//	printf(" %s\n", nel_D_name(psymbol->type->pointer.deref_type->simple.type));
-//		break;
-//	case nel_D_TYPEDEF_NAME://type_t ident;
-//		printf(" %s\n", nel_D_name(psymbol->type->typedef_name.descriptor->simple.type));
-//		break;
-//	default:
-//		printf("\n");	
-//	}
-}
-
-//int func(int a1, char a2){return 0;}
-//-Peek Ffunc--------- file.c:func F: nel_D_INT nel_D_INT nel_D_CHAR
-//-Peek Ffunc.0------- file.c:func.0 F: nel_D_FUNCTION nel_D_INT
-//-Peek Ffunc.arg2---- file.c:func.arg2 F: nel_D_FUNCTION nel_D_CHAR
-static void PrintGlobalFuncInfo(const nel_symbol *psymbol, const char *arg)
-{
-	if(!psymbol)
-	{
-		printf(" NULL symbol\n");
-		return;	
-	}
-	
-	if(psymbol->class != nel_C_COMPILED_FUNCTION && psymbol->class != nel_C_NEL_FUNCTION)
-	{
-		printf(" %s's type is not nel_C_COMPILED_FUNCTION or nel_C_NEL_FUNCTION\n", psymbol->name);	
-		return;
-	}
-	
-	//added by zhangbin, 2006-4-6
-	if(arg)
-	{
-		printf("%s.%s F: %s %d %d", psymbol->name, arg, nel_D_name(psymbol->type->function.type), psymbol->type->simple.size, psymbol->type->simple.alignment);
-		if(strcmp(arg, "0") == 0)	//print return type
-		{
-			PrintDetailType(psymbol->type->function.return_type);
-			printf("\n");
-			return;
-		}
-		else	//print a named arg
-		{
-			nel_list *plist = psymbol->type->function.args;
-			while(plist)
-			{
-				if(strcmp(plist->symbol->name, arg) == 0)//find
-				{
-					PrintDetailType(plist->symbol->type);
-					printf("\n");
-					return;
-				}
-				plist = plist->next;
-			}
-			printf(" param named: %s not found!\n", arg);
-			return;
-		}
-	}
-	else
-	{
-		printf("%s F:", psymbol->name);
-		PrintDetailType(psymbol->type);
-		printf("\n");
-		return;
-	}
-	return;
-	//end of 2006-4-6
-	
-//	nel_list *list_head = NULL;
-//	printf("%s F: %s", psymbol->name, nel_D_name(psymbol->type->function.return_type->simple.type));
-//	//print arg list of the function
-//	list_head = psymbol->type->function.args;
-//	while(list_head)
-//	{
-//		printf(" %s", nel_D_name(list_head->symbol->type->simple.type));
-//		list_head = list_head->next;	
-//	}
-//	printf("\n");	
-}
-
-//struct s
-//{
-//	union {int m1;}u;
-//	int m1;
-//};
-//-Peek Ss--------- file.c: s S: nel_D_STRUCT_TAG nel_D_STRUCT nel_D_UNION nel_D_INT nel_D_INT
-//-Peek Ss.m1------ file.c: s.m1 S: nel_D_STRUCT_TAG nel_D_STRUCT nel_D_INT
-//-peek Ss.u------- file.c: s.u S: nel_D_STRUCT_TAG nel_D_STRUCT nel_D_UNION nel_D_INT
-//-Peek Ss.u.m1---- file.c: s.u.m1 S: nel_D_STRUCT_TAG nel_D_STRUCT nel_D_UNION nel_D_INT
-static void PrintStructInfo(const nel_symbol *psymbol, const char *member_list)
-{
-	if(!psymbol)
-	{
-		printf(" NULL symbol\n");
-		return;	
-	}
-	
-	nel_member *member_head = NULL;
-	if(psymbol->class != nel_C_TYPE)	
-	{
-		printf(" %s's type is not nel_C_TYPE\n", psymbol->name);	
-		return;
-	}
-
-	//added by zhangbin, 2006-4-6
-	if(member_list)
-	{
-		printf("%s.%s S: %s", psymbol->name, member_list, nel_D_name(psymbol->type->tag_name.type));//print "s.u S: nel_D_STRUCT_TAG"
-		nel_type *cur_type = psymbol->type->tag_name.descriptor;
-		char *cur_tok = strtok(member_list, ".");
-		nel_member *pmember = NULL;
-		while(cur_tok)
-		{
-			if(cur_type->simple.type != nel_D_STRUCT && cur_type->simple.type != nel_D_UNION)
-			{
-				printf(" bad type\n");
-				return;
-			}
-			printf(" %s", nel_D_name(cur_type->s_u.type));
-			pmember = cur_type->s_u.members;
-			while(pmember)
-			{
-				if(strcmp(cur_tok, pmember->symbol->name) == 0)//find
-				{
-					cur_type = pmember->symbol->type;
-					break;
-				}
-				pmember = pmember->next;
-			}
-			if(!pmember)//not find
-			{
-				printf(" bad name\n");
-				return;
-			}
-			cur_tok = strtok(NULL, ".");
-		}
-		if(!cur_type)
-		{
-			printf(" null type\n");
-			return;
-		}
-		//added by zhangbin, 2006-4-21
-		printf(" %d", pmember->offset);
-		PrintDetailType(cur_type);
-		printf("\n");
-		return;
-	}//end of if(member_list)
-	else
-	{
-		printf("%s S:", psymbol->name);
-		PrintDetailType(psymbol->type);
-		printf("\n");
-		return;
-	}
-	//end of added, 2006-4-6
-
-//	printf("%s S:", psymbol->name);
-//	//print every member
-//	member_head = psymbol->type->tag_name.descriptor->s_u.members;
-//	while(member_head)
-//	{
-//		printf(" %s", nel_D_name(member_head->symbol->type->simple.type));	
-//		member_head = member_head->next;
-//	}		
-//	printf("\n");	
-}
-
-static void PrintUnionInfo(const nel_symbol *psymbol, const char *member_list)
-{
-	if(!psymbol)
-	{
-		printf(" NULL symbol\n");
-		return;	
-	}
-	
-	nel_member *member_head = NULL;
-	if(psymbol->class != nel_C_TYPE)	
-	{
-		printf(" %s's type is not nel_C_TYPE\n", psymbol->name);	
-		return;
-	}
-	
-	//added by zhangbin, 2006-4-6
-	if(member_list)
-	{
-		printf("%s.%s U: %s", psymbol->name, member_list, nel_D_name(psymbol->type->tag_name.type));
-		nel_type *cur_type = psymbol->type->tag_name.descriptor;
-		char *cur_tok = strtok(member_list, ".");
-		nel_member *pmember = NULL;
-		while(cur_tok)
-		{
-			if(cur_type->simple.type != nel_D_STRUCT && cur_type->simple.type != nel_D_UNION)
-			{
-				printf(" bad type\n");
-				return;
-			}
-			printf(" %s", nel_D_name(cur_type->s_u.type));
-			pmember = cur_type->s_u.members;
-			while(pmember)
-			{
-				if(strcmp(cur_tok, pmember->symbol->name) == 0)//find
-				{
-					cur_type = pmember->symbol->type;
-					break;
-				}
-				pmember = pmember->next;
-			}
-			if(!pmember)//not find
-			{
-				printf(" bad name\n");
-				return;
-			}
-			cur_tok = strtok(NULL, ".");
-		}
-		if(!cur_type)
-		{
-			printf(" null type\n");
-			return;
-		}
-		//added by zhangbin, 2006-4-21
-		printf(" %d", pmember->offset);
-		//ended, 2006-4-21
-	
-		PrintDetailType(cur_type);
-		printf("\n");
-		return;
-	}//end of if(member_list)
-	else
-	{
-		printf("%s U:", psymbol->name);
-		PrintDetailType(psymbol->type);
-		printf("\n");
-		return;
-	}
-	//end of added, 2006-4-6
-
-//	printf("%s U:", psymbol->name);
-//	//print every member
-//	member_head = psymbol->type->tag_name.descriptor->s_u.members;
-//	while(member_head)
-//	{
-//		printf(" %s", nel_D_name(member_head->symbol->type->simple.type));	
-//		member_head = member_head->next;
-//	}		
-//	printf("\n");	
-}
-
-//enum e{e1=1, e2};
-//-Peek Ee ------ file.c:e E: nel_D_ENUM_TAG nel_D_ENUM e1 1 e2 2
-//-Peek Ee.e2---- file.c:e.e2 E: nel_D_ENUM_TAG nel_D_ENUM e2 2
-static void PrintEnumInfo(const nel_symbol *psymbol, const char *member_name)
-{
-	if(!psymbol)
-	{
-		printf(" NULL symbol\n");
-		return;	
-	}
-	
-	if(psymbol->class != nel_C_TYPE)	
-	{
-		printf(" %s's type is not nel_C_TYPE\n", psymbol->name);	
-		return;
-	}
-	
-	//added by zhangbin, 2006-4-6
-	if(member_name)	//print a enumed const info
-	{
-		nel_list *plist = psymbol->type->tag_name.descriptor->enumed.consts;
-		printf("%s.%s E: %s %s", psymbol->name, member_name, nel_D_name(psymbol->type->simple.type), nel_D_name(psymbol->type->tag_name.descriptor->enumed.type));
-		while(plist)
-		{
-			if(strcmp(member_name, plist->symbol->name) == 0)//here shouled be modified further to print the true value!!!
-			{
-				printf(" %d\n", plist->value);
-				return;
-			}
-			plist = plist->next;
-		}
-		printf(" can not find %s\n", member_name);
-		return;
-	}
-	else
-	{
-		printf("%s E:", psymbol->name);
-		PrintDetailType(psymbol->type);
-		printf("\n");
-		return;
-	}
-	
-	//printf("%s E: %s\n", psymbol->name, nel_D_name(psymbol->type->tag_name.descriptor->enumed.type));
-}
-
-static void PrintTypedefInfo(const nel_symbol *psymbol)
-{
-	if(!psymbol)
-	{
-		printf(" NULL symbol\n");
-		return;	
-	}
-	
-	if(psymbol->class != nel_C_TYPE)	
-	{
-		printf(" %s's type is not nel_C_TYPE\n", psymbol->name);	
-		return;
-	}	
-	
-	//added by zhangbin, 2006-4-6
-	printf("%s T:", psymbol->name);
-	PrintDetailType(psymbol->type);
-	printf("\n");
-	return;
-	//end 2006-4-6
-	
-//	printf("%s T: %s %s\n", psymbol->name, nel_D_name(psymbol->type->simple.type), nel_D_name(psymbol->type->typedef_name.descriptor->simple.type));
-}
-
-extern void PrintPeekInfo(struct nel_eng *eng)
-{
-	peek_arg_link_t *plink = eng->peek_arg_link_begin;
-	char *type_name = NULL;
-	char *arg_list = NULL;
-
-	while(plink)
-	{
-		char *p = plink->name;
-		nel_symbol* psymbol;
-
-		//added by zhangbin, 2006-4-6
-		//modified by zhangbin, 2006-7-17, malloc=>nel_malloc
-#if 1
-		nel_malloc(type_name, strlen(plink->name)+1, char);
-#else
-		type_name = (char*)malloc(strlen(plink->name)+1);
-#endif
-		//end, 2006-7-17
-		if(!type_name)
-		{
-			printf("In PrintPeekInfo, malloc error!\n");
-			exit(1);
-		}
-		while(*p!='.' && *p!='\0') //find the first '.' in plink->name
-			p++;
-		strcpy(type_name, plink->name);
-		if(*p == '.')
-		{
-			type_name[p - plink->name] = '\0';
-			//modified by zhangbin, 2006-7-17, malloc=>nel_malloc
-#if 1
-			nel_malloc(arg_list, strlen(plink->name)+1, char);
-#else
-			arg_list = (char*)malloc(strlen(plink->name)+1);
-#endif
-			//end, 2006-7-17
-			if(!arg_list)
-			{
-				printf("In PrintPeekInfo, malloc error!\n");
-				exit(1);
-			}
-			strcpy(arg_list, p+1);
-		}
-		//end of added
-
-		//modified bu zhangbin, 2006-4-6
-		psymbol = FindNamedSymbol(type_name, plink->type, eng);
-		switch(plink->type)
-		{
-		case 'I':
-			PrintGlobalVarInfo(psymbol);
-			break;
-		case 'F':
-			PrintGlobalFuncInfo(psymbol, arg_list);
-			break;
-		case 'E':
-			PrintEnumInfo(psymbol, arg_list);
-			break;
-		case 'S':
-			PrintStructInfo(psymbol, arg_list);
-			break;
-		case 'U':
-			PrintUnionInfo(psymbol, arg_list);
-			break;
-		case 'T':
-			PrintTypedefInfo(psymbol);
-			break;
-		default:
-			printf(" error!\n");	
-		}
-		plink = plink->next;	
-	}
-	if(type_name)
-		nel_free(type_name);	//nel_dealloca(type_name);	//free(type_name); zhangbin, 2006-7-17, zhangbin, 2006-10-12
-	if(arg_list)
-		nel_free(arg_list);	//nel_dealloca(arg_list);	//free(arg_list); zhangbin, 2006-7-17, zhangbin, 2006-10-12
-}
-
-
-//added by zhangbin, 2006-4-28
 //to parse "3;{8/16/24};0;"
 //output: push complex type into the semantic stack
 static int parse_complex_type(struct nel_eng *eng, const char **pp)
@@ -1544,9 +944,7 @@ void stab_dealloc(struct nel_eng *_eng)
 	nel_dyn_allocator_dealloc ((_eng)->stab->dyn_values_start);
 	nel_stack_dealloc ((_eng)->stab->semantic_stack_start);
 
-	//added by zhangbin, 2006-7-20
 	nel_dealloca(_eng->stab); 
-	//end
 }
 
 
@@ -1589,7 +987,7 @@ void stab_global_acts (struct nel_eng *eng, register nel_symbol *symbol, registe
 			/* set the location from the ld symbol table entry */
 			/***************************************************/
 			symbol->value = old_sym->value;
-			old_sym = nel_lookup_symbol (symbol->name, eng->stab->dyn_ident_hash, eng->nel_static_ident_hash, NULL ) ; /* add NULL at tail, wyong, 2006.10.14 */
+			old_sym = nel_lookup_symbol (symbol->name, eng->stab->dyn_ident_hash, eng->nel_static_ident_hash, NULL ) ; /* add NULL at tail */
 
 			nel_debug ({
 						   stab_trace (eng, "old_sym =\n%1S\n", old_sym);
@@ -1652,7 +1050,7 @@ void stab_static_global_acts (struct nel_eng *eng, register nel_symbol *symbol, 
 		register nel_symbol *old_sym;
 		register nel_list *list;
 		symbol->type = type;
-		symbol->value = (char *) stab_get_value (eng->stab->last_sym);
+		symbol->value = (char *)(long ) stab_get_value (eng->stab->last_sym);
 		symbol->class = nel_C_STATIC_GLOBAL;
 		symbol->lhs = nel_lhs_type (type);
 		symbol->level = 0;  /* just in case */
@@ -1795,7 +1193,7 @@ void stab_local_acts (struct nel_eng *eng, register nel_symbol *symbol, register
 		register nel_symbol *old_sym;
 		register nel_list *list;
 		symbol->type = type;
-		symbol->value = (char *) stab_get_value (eng->stab->last_sym);
+		symbol->value = (char *)(long ) stab_get_value (eng->stab->last_sym);
 		symbol->class = nel_C_LOCAL;
 		symbol->lhs = nel_lhs_type (type);
 		symbol->level = eng->stab->level + 1;
@@ -1984,7 +1382,7 @@ void stab_static_local_acts (struct nel_eng *eng, register nel_symbol *symbol, r
 		symbol->lhs = nel_lhs_type (type);
 		symbol->level = eng->stab->level + 1;
 		if (eng->stab->common_block == NULL) {
-			symbol->value = (char *) stab_get_value (eng->stab->last_sym);
+			symbol->value = (char *)(long ) stab_get_value (eng->stab->last_sym);
 		} else {
 			/***********************************************/
 			/* this var is in a common block.  the address */
@@ -1992,13 +1390,15 @@ void stab_static_local_acts (struct nel_eng *eng, register nel_symbol *symbol, r
 			/* offset (value field of this stab entry).    */
 			/***********************************************/
 			register nel_symbol *common = eng->stab->common_block;
-			symbol->value = (char *) ((int) (common->value) + ((int) stab_get_value (eng->stab->last_sym)));
+
+			symbol->value = (char *) (common->value + ((int) stab_get_value (eng->stab->last_sym)));
+
 			nel_debug ({
-						   if ((common->type == NULL) || (common->type->simple.type != nel_D_COMMON)) {
-						   stab_fatal_error (eng, "stab #%d (nel_stab_static_local_acts #1): bad type for common\n%1S", eng->stab->sym_ct, common)
-							   ;
-						   }
-					   });
+				   if ((common->type == NULL) || (common->type->simple.type != nel_D_COMMON)) {
+				   stab_fatal_error (eng, "stab #%d (nel_stab_static_local_acts #1): bad type for common\n%1S", eng->stab->sym_ct, common)
+					   ;
+				   }
+			   });
 
 			/*************************************************/
 			/* the size of the common block must be at least */
@@ -2387,21 +1787,11 @@ void stab_routine_acts (struct nel_eng *eng, register nel_symbol *symbol, regist
 	if ((symbol != NULL) && (return_type != NULL)) {
 		register nel_symbol *old_sym;
 		symbol->type = nel_type_alloc (eng, nel_D_FUNCTION, 0, 0, 0, 0, 0, 0, return_type, NULL, NULL, eng->stab->comp_unit);
-		symbol->value = (char *) stab_get_value (eng->stab->last_sym);
+		symbol->value = (char *)(long ) stab_get_value (eng->stab->last_sym);
 		symbol->class = nel_C_COMPILED_FUNCTION;
 		symbol->lhs = 0;
 		symbol->level = 0;
 
-#if 0
-		/* wyong, 2006.9.28 */
-		//if(strcmp(symbol->name, "http_uri_unescape") == 0) {
-		//	dummy_func();
-		//}
-		/* zhangbin, 2006.12.13 */
-		if(strcmp(symbol->name, "http_prot_hdr_list_add") == 0) {
-			dummy_func();
-		}
-#endif
 
 		/*******************************************/
 		/* check for a redeclaration of the symbol */
@@ -2419,8 +1809,7 @@ void stab_routine_acts (struct nel_eng *eng, register nel_symbol *symbol, regist
 				} else if (old_sym->value != symbol->value) {
 					stab_error (eng, "stab #%d: redeclaration of %I", eng->stab->sym_ct, symbol);
 				}
-			} else if (/* (old_sym->value == NULL) &&  ucommented by wyong*/
-				(symbol->value != NULL)) {
+			} else if ((symbol->value != NULL)) {
 				/************************************************/
 				/* remove the old symbol from the static ident  */
 				/* hash table, and replace it with the new one, */
@@ -2468,7 +1857,7 @@ void stab_static_routine_acts (struct nel_eng *eng, register nel_symbol *symbol,
 		register nel_symbol *old_sym;
 		register nel_list *list;
 		symbol->type = nel_type_alloc (eng, nel_D_FUNCTION, 0, 0, 0, 0, 0, 0, return_type, NULL, NULL, eng->stab->comp_unit);
-		symbol->value = (char *) stab_get_value (eng->stab->last_sym);
+		symbol->value = (char *)(long ) stab_get_value (eng->stab->last_sym);
 		symbol->class = nel_C_COMPILED_STATIC_FUNCTION;
 		symbol->lhs = 0;
 		symbol->level = 0;
@@ -2723,7 +2112,7 @@ int parse_stab_range_type (struct nel_eng *eng, const char *typename, const char
 
 
 	known = parse_number (pp);
-#if 0 //xiayu
+#if 0 
 	//stab_pop_integer (eng, known);
 	if (known) {
 		register int bound;
@@ -2742,7 +2131,7 @@ int parse_stab_range_type (struct nel_eng *eng, const char *typename, const char
 	++*pp;
 
 	known = parse_number (pp);
-#if 0 //xiayu
+#if 0 
 	//stab_pop_integer (eng, known);
 	if (known) {
 		register int bound;
@@ -2804,7 +2193,7 @@ int parse_stab_enum_type (struct nel_eng *eng, const char **pp)
 		const char *p;
 		char *name;
 
-		//xiayu bugfix, to deal with strings end with '\\'.
+		//to deal with strings end with '\\'.
 		if (**pp == '\\') {
 			*pp += 2;
 		}
@@ -2981,7 +2370,6 @@ int parse_stab_array_type (struct nel_eng *eng, const char **pp)
 
 	orig = *pp;
 
-	//xiayu
 	parse_stab_type (eng, (const char *) NULL, pp);
 	if (**pp != ';') {
 		nel_debug({stab_trace (eng, "bad stab: %s\n", orig);});
@@ -3124,8 +2512,7 @@ int parse_stab_one_struct_field (struct nel_eng *eng, const char **pp, const cha
 	int bit_offset, bit_size;
 	char *name;
 
-#if 0 //xiayu
-
+#if 0 
 	enum debug_visibility visibility;
 	debug_type type;
 #endif
@@ -3289,7 +2676,7 @@ int parse_stab_one_struct_field (struct nel_eng *eng, const char **pp, const cha
 			stab_stmt_error (eng, "stab #%d: illegal field size: %I", eng->stab->sym_ct, symbol);
 		}
 		if ((size == 0) || ((bit_size == CHAR_BIT * size)
-							&& ( type->simple.alignment != 0 /*NOTE,NOTE,NOTE, wyong add prevous check , 2005.6.11 */ && ( bit_offset % (type->simple.alignment * CHAR_BIT) == 0)))) {
+			&& ( type->simple.alignment != 0  && ( bit_offset % (type->simple.alignment * CHAR_BIT) == 0)))) {
 			member = nel_member_alloc (eng, symbol, 0, 0, 0, bit_offset / CHAR_BIT, NULL);
 		} else {
 			/***************************************************/
@@ -3356,7 +2743,7 @@ int parse_stab_struct_fields (struct nel_eng *eng, const char **pp)
 	while (**pp != ';') {
 		/* FIXME: gdb checks os9k_stabs here.  */
 
-		//xiayu bugfix, to deal with strings end with '\\'.
+		//to deal with strings end with '\\'.
 		if (**pp == '\\') {
 			*pp += 2;
 		}
@@ -3364,7 +2751,7 @@ int parse_stab_struct_fields (struct nel_eng *eng, const char **pp)
 
 		p = *pp;
 
-#if 0 //xiayu
+#if 0
 		/* Add 1 to c to leave room for NULL pointer at end.  */
 		if (c + 1 >= alloc) {
 			alloc += 10;
@@ -3454,26 +2841,21 @@ int parse_stab_struct_type (struct nel_eng *eng, const char *tagname, const char
 	/* Get the size.  */
 	size = parse_number (pp);
 	
-//add by zhangbin, 2006-4-28
 	union nel_STACK *temp;
 	temp = eng->stab->semantic_stack_next;
 
-//end add, 2006-4-28
 
 	if (parse_stab_struct_fields (eng, pp) == -1)
 		return -1;
 	++*pp; //skip the final ';'
 
-//add by zhangbin, 2006-4-28
-	if(temp == eng->stab->semantic_stack_next)	//struct that has no member
-	{
+	if(temp == eng->stab->semantic_stack_next) {
 		if(size)
 			return -1;
 		type = nel_type_alloc(eng, nel_D_STRUCT, 0, 0, 0, 0, NULL, NULL);
 		stab_push_type(eng, type);
 		return 0;
 	}
-//end add
 
 	stab_pop_member (eng, end);
 	stab_pop_member (eng, start);
@@ -3514,26 +2896,21 @@ int parse_stab_union_type (struct nel_eng *eng, const char *tagname, const char 
 	/* Get the size.  */
 	size = parse_number (pp);
 
-//add by zhangbin, 2006-4-28
 	union nel_STACK *temp;
 	temp = eng->stab->semantic_stack_next;
 
-//end add, 2006-4-28
 
 	if (parse_stab_struct_fields (eng, pp) == -1)
 		return -1;
 	++*pp; //skip the final ';'
 
-//add by zhangbin, 2006-4-28
-	if(temp == eng->stab->semantic_stack_next)	//union that has no member
-	{
+	if(temp == eng->stab->semantic_stack_next) {
 		if(size)
 			return -1;
 		type = nel_type_alloc(eng, nel_D_UNION, 0, 0, 0, 0, NULL, NULL);
 		stab_push_type(eng, type);
 		return 0;
 	}
-//end add
 
 	stab_pop_member (eng, end);
 	stab_pop_member (eng, start);
@@ -3602,7 +2979,6 @@ int parse_stab_type(struct nel_eng *eng, const char *typename, const char **pp)
 	const char *orig;
 	char *name;
 
-	//wyong, 20230810 
 	if (typename !=NULL && strcmp(typename, "stream") == 0 ) {
 		printf("parse_stab_type, found stream!\n"); 
 	}
@@ -4035,13 +3411,12 @@ int parse_stab_type(struct nel_eng *eng, const char *typename, const char **pp)
 		/************************/
 		parse_stab_type_ex (eng, (const char *) NULL, pp);
 		stab_pop_type (eng, ntype);
-		//modified by zhangbin, 2006-4-20:nel_alignment_of (char) => nel_alignment_of (unsigned long)
 		ntype = nel_type_alloc (eng, nel_D_POINTER, sizeof (char *), nel_alignment_of (unsigned long), 0, 0, ntype);
 		//end modified
 		stab_push_type (eng, ntype);
 		break;
 
-#if 0 //xiayu
+#if 0 
 
 	case '&':
 		/* Reference to another type.  */
@@ -4066,29 +3441,24 @@ int parse_stab_type(struct nel_eng *eng, const char *typename, const char **pp)
 		{
 			register nel_type *type;
 			register nel_type *return_type;
-
-			//modified by zhangbin, 2006-4-27
 			int temp_num[2];
-			char *temp_pp = *pp;
-			if( parse_stab_type_number( eng, pp, temp_num ) != 0 )
-			{
+			char *temp_pp = *((char **)pp);
+
+			if( parse_stab_type_number( eng, pp, temp_num ) != 0 ) {
 				stab_fatal_error( eng, "parse_stab_type_number FAILED\n" );
 			}
 			*pp = temp_pp;
-			if( stab_lookup_type_2 (eng, temp_num[0], temp_num[1]) )
-			{
+			if( stab_lookup_type_2 (eng, temp_num[0], temp_num[1]) ) {
 				parse_stab_type (eng, (const char *) NULL, pp);
 				stab_pop_type (eng, return_type);
 			}
-			else
-			{
+			else {
 				nel_stab_type *stab_type;
 				parse_stab_type (eng, (const char *) NULL, pp);
 				stab_pop_stab_type (eng, stab_type);
 				return_type = stab_type->type;
 			}
 			type = nel_type_alloc (eng, nel_D_FUNCTION, 0, 0, 0, 0, 0, 0, return_type, NULL, NULL, NULL);
-			//ended modified, 2006-4-27
 			stab_push_type (eng, type);
 		}
 		break;
@@ -4111,9 +3481,7 @@ int parse_stab_type(struct nel_eng *eng, const char *typename, const char **pp)
 	case 'k':
 
 #if 1
-		//xiayu 2006.3.8 start
 		parse_stab_type_ex (eng, (const char *) NULL, pp);
-		//xiayu 2006.3.8 end
 
 #else
 		/* Const qualifier on some type (Sun).  */
@@ -4130,7 +3498,6 @@ int parse_stab_type(struct nel_eng *eng, const char *typename, const char **pp)
 
 			//register nel_type *type;
 			//register nel_symbol *symbol;
-			//Fixme: xiayu, 2005.6.11
 			parse_stab_type_number (eng, pp, typenums); 
 			return 0;
 			//parse_stab_type (eng, (const char *) NULL, pp);
@@ -4141,7 +3508,7 @@ int parse_stab_type(struct nel_eng *eng, const char *typename, const char **pp)
 #endif
 		break;
 
-#if 0 //xiayu
+#if 0 
 	case 'B':
 		/* Volatile qual on some type (Sun).  */
 		/* FIXME: gdb accepts 'i' here if os9k_stabs.  */
@@ -4319,7 +3686,6 @@ int parse_stab_type(struct nel_eng *eng, const char *typename, const char **pp)
 		}
 		break;
 	
-	//added by zhangbin, 2006-4-28
 	case 'R':
 		if( parse_complex_type(eng, pp) != 0 )	//failed to parse complex type
 		{
@@ -4327,10 +3693,9 @@ int parse_stab_type(struct nel_eng *eng, const char *typename, const char **pp)
 			return -1;	
 		}
 		break;
-	//end add
 	
 	default:
-		//xiayu don't know whether should add anything here ...
+		//don't know whether should add anything here ...
 		//break;
 		return 0;
 	}
@@ -4514,16 +3879,6 @@ int parse_stab_string (struct nel_eng *eng)
 	int type;
 
 	string = eng->stab->str_scan;
-//added by zhangbin to debug, 2006-4-25
-#if 0
-	/* wyong, 2006.9.28 */
-	//if(strcmp(eng->stab->str_scan, "len_output:p(74,2)") == 0) {
-	if(strcmp(eng->stab->str_scan, "len_output") == 0) {
-		dummy_func();
-		//type = 0;
-	}
-
-#endif
 	p = strchr (string, ':');
 	if (p == NULL) {
 		return 0;
@@ -4547,15 +3902,11 @@ int parse_stab_string (struct nel_eng *eng)
 		stab_push_symbol (eng, NULL);
 		eng->stab->current_symbol == NULL;
 	} else {
-		//xiayu bugfix 2005.1.14
 		//eng->stab->str_scan--;
 
 		stab_read_name (eng, eng->stab->name_buffer, &string, nel_MAX_SYMBOL_LENGTH);
 		name = nel_insert_name(eng, eng->stab->name_buffer);
-#if 0
-		if(strcmp("len_output", name)==0)
-			name = name;
-#endif
+
 		//stab_push_name (eng, name);
 		//stab_pop_name (eng, name);
 		symbol = nel_static_symbol_alloc (eng, name, NULL, NULL, nel_C_NULL, 0, eng->stab->source_lang, eng->stab->level);
@@ -4572,7 +3923,7 @@ int parse_stab_string (struct nel_eng *eng)
 	type = *p++;
 	switch (type) {
 
-#if 0 //xiayu
+#if 0 
 	case 'a':
 		/* Reference parameter which is in a register.  */
 		dtype = parse_stab_type (dhandle, info, (const char *) NULL, &p,
@@ -4684,7 +4035,7 @@ int parse_stab_string (struct nel_eng *eng)
 		}
 		break;
 
-#if 0 //xiayu
+#if 0 
 
 	case 'C':
 		/* The name of a caught exception.  */
@@ -4774,7 +4125,6 @@ int parse_stab_string (struct nel_eng *eng)
 		}
 		break;
 
-		//xiayu
 	case 'i': /* var_proc->'i' SYMBOL ':' type_desc */
 		/************************************************/
 		/* ALLIANT_FX and ALLIANT_FX2800 only.          */
@@ -4824,7 +4174,6 @@ int parse_stab_string (struct nel_eng *eng)
 		}
 		break;
 
-		//xiayu
 	case 'I':
 		/***************************************************/
 		/* internal procedure (different calling sequence) */
@@ -4836,7 +4185,7 @@ int parse_stab_string (struct nel_eng *eng)
 			{
 				symbol->type = nel_type_alloc (eng, nel_D_FUNCTION, 0, 0, 0, 0, 0, 0, nel_void_type, NULL, NULL, eng->stab->comp_unit);
 				symbol->class = nel_C_COMPILED_FUNCTION;
-				symbol->value = (char *) stab_get_value (eng->stab->last_sym);
+				symbol->value = (char *)(long ) stab_get_value (eng->stab->last_sym);
 
 				/********************************/
 				/* don't insert procedure -     */
@@ -4853,7 +4202,6 @@ int parse_stab_string (struct nel_eng *eng)
 		}
 		break;
 
-		//xiayu
 	case 'J':
 		/*********************/
 		/* internal function */
@@ -4867,7 +4215,7 @@ int parse_stab_string (struct nel_eng *eng)
 			{
 				symbol->type = nel_type_alloc (eng, nel_D_FUNCTION, 0, 0, 0, 0, 0, 0, ntype, NULL, NULL, eng->stab->comp_unit);
 				symbol->class = nel_C_COMPILED_FUNCTION;
-				symbol->value = (char *) stab_get_value (eng->stab->last_sym);
+				symbol->value = (char *)(long ) stab_get_value (eng->stab->last_sym);
 
 				/********************************/
 				/* don't insert funciton -      */
@@ -4884,7 +4232,6 @@ int parse_stab_string (struct nel_eng *eng)
 		}
 		break;
 
-		//xiayu
 	case 'k':
 		/**************************************************/
 		/* valid only on ALLIANT_FX2800.                  */
@@ -4897,7 +4244,7 @@ int parse_stab_string (struct nel_eng *eng)
 			parse_stab_type (eng, (const char *) NULL, &p);
 			stab_pop_type (eng, ntype);
 			stab_pop_symbol (eng, symbol);
-			stab_parameter_acts (eng, symbol, ntype, (char *) stab_get_value (eng->stab->last_sym), 0);
+			stab_parameter_acts (eng, symbol, ntype, (char *)(long ) stab_get_value (eng->stab->last_sym), 0);
 		}
 		break;
 
@@ -4913,7 +4260,7 @@ int parse_stab_string (struct nel_eng *eng)
 
 			stab_pop_type (eng, ntype);
 			stab_pop_symbol (eng, symbol);
-			stab_parameter_acts (eng, symbol, ntype, (char *) stab_get_value (eng->stab->last_sym), 0);
+			stab_parameter_acts (eng, symbol, ntype, (char *)(long ) stab_get_value (eng->stab->last_sym), 0);
 		}
 		break;
 
@@ -4927,7 +4274,7 @@ int parse_stab_string (struct nel_eng *eng)
 			stab_routine_acts (eng, symbol, nel_void_type);
 		}
 
-#if 0 //xiayu
+#if 0 
 		/* Fall through.  */
 	case 'R':
 		/* Parameter which is in a register.  */
@@ -5380,12 +4727,12 @@ int parse_stab_string (struct nel_eng *eng)
 
 			stab_pop_type (eng, type);
 			stab_pop_symbol (eng, symbol);
-			stab_parameter_acts (eng, symbol, type, (char *) stab_get_value (eng->stab->last_sym), 1);
+			stab_parameter_acts (eng, symbol, type, (char *)(long )stab_get_value (eng->stab->last_sym), 1);
 		}
 		break;
 
 	case 'X':
-#if 0 //xiayu
+#if 0 
 		/* This is used by Sun FORTRAN for "function result value".
 		Sun claims ("dbx and dbxtool interfaces", 2nd ed)
 		that Pascal uses it too, but when I tried it Pascal used
@@ -5398,7 +4745,7 @@ int parse_stab_string (struct nel_eng *eng)
 									value))
 			return FALSE;
 #endif
-		//xiayu not sure whether should be pasted here....."class->'X' export_info".
+		//not sure whether should be pasted here....."class->'X' export_info".
 		/****************************************************/
 		/* export or import information - (for N_MOD2 only) */
 		/****************************************************/
@@ -5445,12 +4792,6 @@ int parse_stab_string (struct nel_eng *eng)
 	return 0;
 }
 
-#if 0 //xiayu 2005.4.5 debug
-int rain_break(void)
-{
-	return;
-}
-#endif
 
 /*****************************************************************************/
 /* stab_dyn_value_alloc () allocates a space of <bytes> bytes in the dynamic   */
@@ -5534,7 +4875,6 @@ int stab_parse(struct nel_eng *eng)
 	/******************************************************/
 	eng->stab->stmt_err_jmp = (nel_jmp_buf *) stab_dyn_value_alloc (eng, sizeof (nel_jmp_buf), nel_MAX_ALIGNMENT);
 
-	/* uncommented by wyong, 2005.3.16 */
 	stab_setjmp (eng, val, eng->stab->stmt_err_jmp);
 
 	while (1) {
@@ -5547,7 +4887,6 @@ int stab_parse(struct nel_eng *eng)
 		eng->stab->sym_scan++;
 		eng->stab->current_symbol = NULL;
 
-		//wyong, 20230811
 		//printf("stab_parse, process sym (%d of %d)\n", eng->stab->sym_ct, eng->stab->sym_size );
 
 		if (eng->stab->sym_ct > eng->stab->sym_size) {
@@ -5649,18 +4988,12 @@ int stab_parse(struct nel_eng *eng)
 						eng->stab->str_tab + stab_get_name(eng->stab->sym_scan));
 			});
 
-			//wyong, 20230811 
 			//printf("stab_parse, process sym(#%d): name =%s, type = 0x%x value = 0x%x\n",
 			//		eng->stab->sym_ct, 
 			//		eng->stab->str_tab + stab_get_name(eng->stab->sym_scan),
 			//		stab_get_type (eng->stab->sym_scan), 
 			//		stab_get_value (eng->stab->sym_scan));
 
-#if 0 //xiayu 2005.4.5 debug
-			//if (strncmp(eng->stab->str_scan, "stream", sizeof("stream")) == 0) {
-			//	printf("stab_parse(b), found stream!\n");
-			//}
-#endif
 			parse_stab_string(eng);
 			break;
 
@@ -5700,7 +5033,7 @@ int stab_parse(struct nel_eng *eng)
 				stab_push_block (eng, eng->stab->last_block);
 				eng->stab->first_block = NULL;
 				eng->stab->last_block = NULL;
-				eng->stab->block_start_address = (char *) stab_get_value (eng->stab->last_sym);
+				eng->stab->block_start_address = (char *)(long ) stab_get_value (eng->stab->last_sym);
 			}
 
 			break;
@@ -5719,15 +5052,14 @@ int stab_parse(struct nel_eng *eng)
 				{
 					nel_block *block;
 
-					//xiayu 2005.4.5 the semantic stack was accidentally reseted.
-					if (eng->stab->semantic_stack_next == eng->stab->semantic_stack_start)
-					{
+					//the semantic stack was accidentally reseted.
+					if (eng->stab->semantic_stack_next == eng->stab->semantic_stack_start) {
 						break;
 					}
 
 					block = nel_block_alloc (eng, eng->stab->block_no, NULL, NULL, NULL, eng->stab->first_block, NULL);
 					block->start_address = eng->stab->block_start_address;
-					block->end_address = (char *) stab_get_value (eng->stab->last_sym);
+					block->end_address = (char *)(long)stab_get_value (eng->stab->last_sym);
 					stab_pop_block (eng, eng->stab->last_block);
 					stab_pop_block (eng, eng->stab->first_block);
 
@@ -5847,31 +5179,15 @@ int stab_parse(struct nel_eng *eng)
 			break;
 
 		case N_SO:
-			//printf("stab_parse, process N_SO (10)\n");
 			if (stab_get_name (eng->stab->sym_scan) == 0) {
-				//printf("stab_parse, process N_SO (20)\n");
-
-				//bugfix, wyong, 20230814 
 	                        eng->stab->level = 0;
 
 				//stab_block_error (eng, "stab #%d: NULL source file name", eng->stab->sym_ct);
 			} else if (eng->stab->level != 0) {
-				//printf("stab_parse, process N_SO (30)\n");
 				stab_block_error (eng, "stab #%d: improper block nesting", eng->stab->sym_ct);
 			} else {
-				//printf("stab_parse, process N_SO (40)\n");
 				char *filename = eng->stab->str_tab + stab_get_name (eng->stab->sym_scan);
 
-#if 0
-				/* wyong, 2006.9.28 */
-				if (filename!= 0) {
-					printf("stab_parse: N_SO=%s\n", filename );
-					if(strcmp(filename, "http_parse.c" ) == 0 ){
-						dummy_func();
-					}
-				}
-			
-#endif
 				/**********************************************/
 				/* append an nel_line structure with address 0 */
 				/* to the previous list of line # / address   */
@@ -5881,26 +5197,22 @@ int stab_parse(struct nel_eng *eng)
 					*eng->stab->last_line = nel_line_alloc (eng, 0, NULL, NULL);
 				}
 
-				//printf("stab_parse, process N_SO (50)\n");
 				/*****************************************************/
 				/* if this is only the directory where the file will */
 				/* be found, start over on the next string, which    */
 				/* should be the file name.                          */
 				/*****************************************************/
 				if (filename[strlen (filename) - 1] == '/') {
-					//printf("stab_parse, process N_SO (60)\n");
 					nel_debug ({
 						stab_trace (eng, "source file directory: stab #%d: type = 0x%x\n%s\n\n", eng->stab->sym_ct, stab_get_type (eng->stab->sym_scan), filename);
 					});
 					break;
 				}
-				//printf("stab_parse, process N_SO (70)\n");
 				nel_debug ({
 					stab_trace (eng, "source file: stab #%d: type = 0x%x\n%s\n\n",
 					eng->stab->sym_ct, stab_get_type (eng->stab->sym_scan), filename);
 				});
 
-				//printf("stab_parse, process N_SO (80)\n");
 				/******************************************************/
 				/* print out the name of the new source file, so that */
 				/* if an error occurrs in an header file, we know     */
@@ -5914,7 +5226,6 @@ int stab_parse(struct nel_eng *eng)
 				/* clean up after the previous compilation unit */
 				/************************************************/
 
-				//printf("stab_parse, process N_SO (90)\n");
 				/*****************************************************/
 				/* if there was no body for the last routine in the  */
 				/* previous file, we need to set its block list, and */
@@ -5924,7 +5235,6 @@ int stab_parse(struct nel_eng *eng)
 					stab_end_routine (eng);
 				}
 
-				//printf("stab_parse, process N_SO (100)\n");
 				/*******************************************************/
 				/* purge the dynamic tables of all symbols - static    */
 				/* global symbols wil still be inserted in the dynamic */
@@ -5934,7 +5244,6 @@ int stab_parse(struct nel_eng *eng)
 				nel_purge_table (eng, 0, eng->stab->dyn_tag_hash);
 				nel_purge_table (eng, 0, eng->stab->dyn_label_hash);
 
-				//printf("stab_parse, process N_SO (110)\n");
 				/******************************************************/
 				/* eng->stab->incl_stack should either be NULL (first  */
 				/* compilation unit), or else it should have exactly  */
@@ -5943,7 +5252,6 @@ int stab_parse(struct nel_eng *eng)
 				/* the header files in the previous compilation unit. */
 				/******************************************************/
 				if (eng->stab->incl_stack != NULL) {
-					//printf("stab_parse, process N_SO (120)\n");
 					nel_list *prev;
 #if 0
 
@@ -5958,16 +5266,13 @@ int stab_parse(struct nel_eng *eng)
 						eng->stab->incl_stack = eng->stab->incl_stack->next;
 						nel_list_dealloc (prev);
 					}
-					//printf("stab_parse, process N_SO (130)\n");
 				}
 
-				//printf("stab_parse, process N_SO (140)\n");
 				/*****************************/
 				/* clear the stab hash table */
 				/*****************************/
 				stab_clear_type_hash (eng->stab->type_hash);
 				
-				//printf("stab_parse, process N_SO (150)\n");
 				/****************************************************/
 				/* remove the symbols for the predefined type names */
 				/* in the previous compilation from the ident hash  */
@@ -5987,7 +5292,6 @@ int stab_parse(struct nel_eng *eng)
 					eng->stab->C_types_inserted = 0;
 				}
 				
-				//printf("stab_parse, process N_SO (160)\n");
 				/*
 				if (eng->stab->fortran_types_inserted) {
 					nel_remove_fortran_types (eng);
@@ -5999,7 +5303,6 @@ int stab_parse(struct nel_eng *eng)
 				/* now, set stuff up for the new compilation unit */
 				/**************************************************/
 				{
-					//printf("stab_parse, process N_SO (170)\n");
 					/****************************************************/
 					/* first determine the language of the source file  */
 					/* based upon its suffix, and insert the predefined */
@@ -6008,42 +5311,35 @@ int stab_parse(struct nel_eng *eng)
 					/****************************************************/
 					register int len = strlen (filename);
 					register char suffix;
-					if ((len >= 2) && (filename[len - 2] == '.'))
-					{
+					if ((len >= 2) && (filename[len - 2] == '.')) {
 						suffix = filename[len - 1];
-					} else
-					{
+					} else {
 						suffix = '\0';
 					}
-					if (suffix == 's')
-					{
+					if (suffix == 's') {
 						//nel_insert_fortran_types (eng);
 						//eng->stab->fortran_types_inserted = 1;
 						nel_insert_C_types (eng);
 						eng->stab->C_types_inserted = 1;
 						eng->stab->source_lang = nel_L_ASSEMBLY;
 					}
-					else if (suffix == 'c')
-					{
+					else if (suffix == 'c') {
 						nel_insert_C_types (eng);
 						eng->stab->C_types_inserted = 1;
 						eng->stab->source_lang = nel_L_C;
 					} 
-					/* else if (suffix == 'f')
-					{
+					/* else if (suffix == 'f') {
 						nel_insert_fortran_types (eng);
 						eng->stab->fortran_types_inserted = 1;
 						eng->stab->source_lang = nel_L_FORTRAN;
 					}*/
-					else
-					{
+					else {
 						stab_warning (eng, "stab #%d: source file with unknown suffix: %s",
 									 eng->stab->sym_ct, filename);
 						eng->stab->source_lang = nel_L_ASSEMBLY;
 					}
 				}
 
-				//printf("stab_parse, process N_SO (180)\n");
 				/***********************************************/
 				/* now make the symbol, and insert it in the   */
 				/* nel_static_file_hash table.  also make the   */
@@ -6051,14 +5347,12 @@ int stab_parse(struct nel_eng *eng)
 				/* so that we may rename them appropriately.   */
 				/***********************************************/
 				{
-					//printf("stab_parse, process N_SO (190)\n");
 					register nel_symbol *symbol;
 					register nel_type *type;
 					nel_make_file_prefix (eng, eng->stab->comp_unit_prefix, filename, nel_MAX_SYMBOL_LENGTH);
 					symbol = stab_lookup_file (eng, filename);
 					if (symbol != NULL)
 					{
-						//printf("stab_parse, process N_SO (200)\n");
 						stab_warning (eng, "source file %I multiply defined", symbol);
 					}
 					type = nel_type_alloc (eng, nel_D_FILE, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL);
@@ -6067,7 +5361,6 @@ int stab_parse(struct nel_eng *eng)
 					eng->stab->comp_unit = eng->stab->current_file = symbol;
 					stab_insert_file (eng, symbol);
 
-					//printf("stab_parse, process N_SO (210)\n");
 					/*********************************************/
 					/* set eng->stab->filename for error messages */
 					/*********************************************/
@@ -6118,18 +5411,15 @@ int stab_parse(struct nel_eng *eng)
 					/**************************************/
 					eng->stab->last_line = &(type->file.lines);
 
-					//printf("stab_parse, process N_SO (220)\n");
 				}
-				//printf("stab_parse, process N_SO (230)\n");
 			}
-			//printf("stab_parse, process N_SO (240)\n");
 			break;
 
 		case N_SOL:
 			nel_debug ({
-						   stab_trace (eng, "rejecting symbol: stab #%d: type = 0x%x\n%s\n\n", eng->stab->sym_ct,
-									  stab_get_type (eng->stab->sym_scan), eng->stab->str_tab + stab_get_name (eng->stab->sym_scan));
-					   });
+			   stab_trace (eng, "rejecting symbol: stab #%d: type = 0x%x\n%s\n\n", eng->stab->sym_ct,
+						  stab_get_type (eng->stab->sym_scan), eng->stab->str_tab + stab_get_name (eng->stab->sym_scan));
+		   });
 			break;
 
 		case N_BINCL:
@@ -6137,21 +5427,21 @@ int stab_parse(struct nel_eng *eng)
 				stab_block_error (eng, "stab #%d: NULL header file name", eng->stab->sym_ct);
 			}
 			nel_debug ({
-						   stab_trace (eng, "include file: stab #%d: type = 0x%x\n%s\n\n",
-									  eng->stab->sym_ct, stab_get_type (eng->stab->sym_scan),
-									  eng->stab->str_tab + stab_get_name (eng->stab->sym_scan));
-					   });
+				   stab_trace (eng, "include file: stab #%d: type = 0x%x\n%s\n\n",
+							  eng->stab->sym_ct, stab_get_type (eng->stab->sym_scan),
+							  eng->stab->str_tab + stab_get_name (eng->stab->sym_scan));
+			   });
 
 			{
 				register nel_symbol *symbol;
 				register nel_type *type;
 				nel_debug ({
-							   if (eng->stab->incl_stack == NULL) {
-							   stab_fatal_error (eng, "stab #%d (nel_stab_lex #4): eng->stab->incl_stack == NULL", eng->stab->sym_ct)
-								   ;
-								   //return -1;
-							   }
-						   });
+					   if (eng->stab->incl_stack == NULL) {
+					   stab_fatal_error (eng, "stab #%d (nel_stab_lex #4): eng->stab->incl_stack == NULL", eng->stab->sym_ct)
+						   ;
+						   //return -1;
+					   }
+				   });
 				eng->stab->incl_num = eng->stab->incl_ct++;
 
 				/*****************************************/
@@ -6172,14 +5462,14 @@ int stab_parse(struct nel_eng *eng)
 				} else {
 					type = symbol->type;
 					nel_debug ({
-								   if ((type == NULL) || (type->simple.type != nel_D_FILE)) {
-								   stab_fatal_error (eng, "stab #%d (nel_stab_lex #5): bad file type\n%1T",
-													eng->stab->sym_ct, symbol->type)
-									   ;
-									   //return -1;
-								   }
-								   stab_trace (eng, "include file previously encountered: %I\n\n", symbol);
-							   });
+						   if ((type == NULL) || (type->simple.type != nel_D_FILE)) {
+						   stab_fatal_error (eng, "stab #%d (nel_stab_lex #5): bad file type\n%1T",
+											eng->stab->sym_ct, symbol->type)
+							   ;
+							   //return -1;
+						   }
+						   stab_trace (eng, "include file previously encountered: %I\n\n", symbol);
+					   });
 				}
 
 				/********************************************/
@@ -6192,20 +5482,20 @@ int stab_parse(struct nel_eng *eng)
 				} else {
 					register nel_list *list;
 					nel_debug ({
-								   if ((eng->stab->comp_unit->type == NULL)
-										   || (eng->stab->comp_unit->type->simple.type != nel_D_FILE)) {
-								   stab_fatal_error (eng, "stab #%d (nel_stab_lex #6):bad comp_unit\n%1S",
-													eng->stab->sym_ct,
-													eng->stab->comp_unit)
-									   ;
-									   //return -1;
-								   }
-								   if (eng->stab->last_include == NULL) {
-								   stab_fatal_error (eng, "stab #%d (nel_stab_lex #7): last_incl == NULL")
-									   ;
-									   //return -1;
-								   }
-							   });
+						   if ((eng->stab->comp_unit->type == NULL)
+								   || (eng->stab->comp_unit->type->simple.type != nel_D_FILE)) {
+						   stab_fatal_error (eng, "stab #%d (nel_stab_lex #6):bad comp_unit\n%1S",
+											eng->stab->sym_ct,
+											eng->stab->comp_unit)
+							   ;
+							   //return -1;
+						   }
+						   if (eng->stab->last_include == NULL) {
+						   stab_fatal_error (eng, "stab #%d (nel_stab_lex #7): last_incl == NULL")
+							   ;
+							   //return -1;
+						   }
+					   });
 					list = nel_list_alloc (eng, eng->stab->incl_num, symbol, NULL);
 					eng->stab->last_include->next = list;
 					eng->stab->last_include = list;
@@ -6246,20 +5536,20 @@ int stab_parse(struct nel_eng *eng)
 				nel_list_dealloc (temp);
 
 				nel_debug ({
-							   if ((eng->stab->incl_stack == NULL) ||
-									   (eng->stab->incl_stack->symbol == NULL) ||
-									   (eng->stab->incl_stack->symbol->name == NULL) ||
-									   (eng->stab->incl_stack->symbol->type == NULL) ||
-									   (eng->stab->incl_stack->symbol->type->simple.type != nel_D_FILE)) {
-							   stab_fatal_error (eng, "stab #%d (nel_stab_lex #8): bad eng->stab->incl_stack\n%1L", eng->stab->sym_ct, eng->stab->incl_stack)
-								   ;
-								   //return -1;
-							   }
-							   stab_trace (eng, "end of include file: stab #%d: type = 0x%x\n\n", eng->stab->sym_ct, stab_get_type (eng->stab->sym_scan));
-							   stab_trace (eng, "returning to file\n%1S\n", eng->stab->incl_stack->symbol);
-						   });
+					   if ((eng->stab->incl_stack == NULL) ||
+							   (eng->stab->incl_stack->symbol == NULL) ||
+							   (eng->stab->incl_stack->symbol->name == NULL) ||
+							   (eng->stab->incl_stack->symbol->type == NULL) ||
+							   (eng->stab->incl_stack->symbol->type->simple.type != nel_D_FILE)) {
+					   stab_fatal_error (eng, "stab #%d (nel_stab_lex #8): bad eng->stab->incl_stack\n%1L", eng->stab->sym_ct, eng->stab->incl_stack)
+						   ;
+						   //return -1;
+					   }
+					   stab_trace (eng, "end of include file: stab #%d: type = 0x%x\n\n", eng->stab->sym_ct, stab_get_type (eng->stab->sym_scan));
+					   stab_trace (eng, "returning to file\n%1S\n", eng->stab->incl_stack->symbol);
+				   });
 
-				/*********************************************************/
+		/*********************************************************/
 				/* append an nel_line structure with address 0 to the     */
 				/* list of line # / address pairs as a dummy terminator. */
 				/*********************************************************/
@@ -6375,7 +5665,6 @@ int stab_parse(struct nel_eng *eng)
 					} else {
 
 #if 1
-						/* wyong, 2006.9.28 */
 						if (stab_lookup_type_2 (eng, incl_num, scan->type_num) == NULL) {
 							nel_stab_type *tmp = stab_remove_type(eng, scan, eng->stab->type_hash, nel_stab_type_hash_max);
 							tmp->file_num = incl_num;
@@ -6464,12 +5753,12 @@ int stab_parse(struct nel_eng *eng)
 						/* for the end of the common block. */
 						/************************************/
 						stab_error (eng, "stab #%d: no ld entry for common block %I", eng->stab->sym_ct, new_sym);
-						//xiayu should 'error' not return???
+						//should 'error' not return???
 						for (;;) {
 							eng->stab->sym_ct++;
 							eng->stab->sym_scan++;
 							if (eng->stab->sym_ct > eng->stab->sym_size) {
-								return 0; //xiayu should be '0'???
+								return 0; //should be '0'???
 							}
 							if (stab_get_type (eng->stab->sym_scan) == N_ECOMM) {
 								break;
@@ -6514,7 +5803,6 @@ int stab_parse(struct nel_eng *eng)
 			if(stab_get_name(eng->stab->sym_scan)) {
 
 #if 0
-				/* wyong, 2006.9.28 */
 				char *funcname = eng->stab->str_tab + stab_get_name (eng->stab->sym_scan);
 				if (funcname != 0) {
 					printf("stab_parse: FUN=%s\n", funcname );
@@ -6543,19 +5831,11 @@ int stab_parse(struct nel_eng *eng)
 				/* we have a valid string that we want to parse. */
 				/*************************************************/
 				nel_debug ({
-							   stab_trace (eng, "stab #%d: type = 0x%x value = 0x%x\n%s\n\n",
-										  eng->stab->sym_ct, stab_get_type (eng->stab->sym_scan), stab_get_value (eng->stab->sym_scan),
-										  eng->stab->str_tab + stab_get_name (eng->stab->sym_scan));
-						   });
+					   stab_trace (eng, "stab #%d: type = 0x%x value = 0x%x\n%s\n\n",
+								  eng->stab->sym_ct, stab_get_type (eng->stab->sym_scan), stab_get_value (eng->stab->sym_scan),
+								  eng->stab->str_tab + stab_get_name (eng->stab->sym_scan));
+				   });
 
-
-#if 0 //xiayu 2005.4.5 debug
-
-				fprintf(stderr, "%s\n", eng->stab->str_scan);
-				if (strncmp(eng->stab->str_scan, "nel_stab_in_routine:F(0,4)", 26) == 0) {
-					rain_break();
-				}
-#endif
 				parse_stab_string(eng);
 				break;
 			}
@@ -6583,7 +5863,7 @@ int stab_parse(struct nel_eng *eng)
 			/* so that nel_stab_end_routine will        */
 			/* correctly set it.                       */
 			/*******************************************/
-			eng->stab->block_end_address = (char *) stab_get_value (eng->stab->sym_scan);
+			eng->stab->block_end_address = (char *)(long) stab_get_value (eng->stab->sym_scan);
 
 			/********************************************************/
 			/* call nel_stab_end_routine to create a block structure */
@@ -6624,14 +5904,14 @@ int stab_parse(struct nel_eng *eng)
 			/* record this address as the highest */
 			/* address so far in the block.       */
 			/**************************************/
-			eng->stab->block_end_address = (char *) stab_get_value (eng->stab->sym_scan);
+			eng->stab->block_end_address = (char *)(long) stab_get_value (eng->stab->sym_scan);
 
 			/**************************************/
 			/* append an nel_line structure to the */
 			/* list of line # / address pairs.    */
 			/**************************************/
 			if (eng->stab->last_line != NULL) {
-				register nel_line *line = nel_line_alloc (eng, eng->stab->line, (char *) stab_get_value (eng->stab->sym_scan), NULL);
+				register nel_line *line = nel_line_alloc (eng, eng->stab->line, (char *) (long )stab_get_value (eng->stab->sym_scan), NULL);
 				*eng->stab->last_line = line;
 				eng->stab->last_line = &(line->next);
 			}
@@ -6646,16 +5926,6 @@ int stab_parse(struct nel_eng *eng)
 
 
 		case N_OPT:
-#if 0 //xiayu
-
-			if (string != NULL && strcmp (string, "gcc2_compiled.") == 0)
-				info->gcc_compiled = 2;
-			else if (string != NULL && strcmp (string, "gcc_compiled.") == 0)
-				info->gcc_compiled = 1;
-			else
-				info->n_opt_found = TRUE;
-#endif
-
 			break;
 
 			/*****************/
@@ -6678,7 +5948,6 @@ int stab_parse(struct nel_eng *eng)
 
 
 #if 0
-		/* wyong, 2006.9.28 */
 		{
 			struct nel_STAB_TYPE *stab_type;
 			stab_type = stab_lookup_type_2(eng, 71, 2 );
@@ -6733,7 +6002,6 @@ int stab_type_hash (int file_num, int type_num, int max)
 	return (retval);
 }
 
-/* wyong, 2006.9.28 */
 /*****************************************************************************/
 /* nel_stab_remove_type() removes the stab_type structure pointed to by   */
 /* <type> into the <table> on the appropriate chain.  <table> should have    */
@@ -6930,20 +6198,19 @@ void stab_clear_type_hash (register nel_stab_type **table)
 /*****************************************************************************/
 void stab_ld_scan (struct nel_eng *eng)
 {
-	//Elf32_Sym -> Elf64_Sym, wyong, 20230809 
 	Elf64_Sym *scan;
 	nel_debug ({ stab_trace (eng, "entering nel_stab_ld_scan [\neng = 0x%x\n\n", eng); });
 
 	nel_debug ({
-				   if (eng->stab->ld_str_tab == NULL) {
-				   stab_fatal_error (eng, "stab #%d: (nel_stab_ld_scan #1): NULL ld string table", eng->stab->sym_ct)
-					   ;
-				   }
-				   if (eng->stab->ld_sym_tab == NULL) {
-				   stab_fatal_error (eng, "stab #%d: (nel_stab_ld_scan #2): NULL ld symbol table", eng->stab->sym_ct)
-					   ;
-				   }
-			   });
+		   if (eng->stab->ld_str_tab == NULL) {
+		   stab_fatal_error (eng, "stab #%d: (nel_stab_ld_scan #1): NULL ld string table", eng->stab->sym_ct)
+			   ;
+		   }
+		   if (eng->stab->ld_sym_tab == NULL) {
+		   stab_fatal_error (eng, "stab #%d: (nel_stab_ld_scan #2): NULL ld symbol table", eng->stab->sym_ct)
+			   ;
+		   }
+	   });
 
 	*(eng->stab->comp_unit_prefix) = '\0';
 
@@ -6999,7 +6266,6 @@ void stab_ld_scan (struct nel_eng *eng)
 			/***********************************************************/
 			//#define ELF32_ST_INFO(b,t) (((b)<<4) + ((t)&0x0f))
 
-			//ELF32_ST_INFO -> ELF64_ST_INFO, wyong, 20230809 
 			case ELF64_ST_INFO (STB_GLOBAL, STT_NOTYPE):
 			case ELF64_ST_INFO (STB_GLOBAL, STT_OBJECT):
 			case ELF64_ST_INFO (STB_GLOBAL, STT_FUNC): {
@@ -7025,11 +6291,7 @@ void stab_ld_scan (struct nel_eng *eng)
 int stab_file_parse(struct nel_eng *eng, char *filename)
 {
 	nel_jmp_buf return_pt;
-
-	//Elf32_Ehdr -> Elf64_Ehdr, wyong, 20230809 
 	Elf64_Ehdr header;	/* read file header in here		*/
-
-	//Elf32_Shdr -> Elf64_Shdr, wyong, 20230809 	
 	Elf64_Shdr sec_hdr;	/* read section headers	in here		*/
 
 	off_t shoff;		/* offset of section header (scan var)	*/
@@ -7041,18 +6303,14 @@ int stab_file_parse(struct nel_eng *eng, char *filename)
 	off_t ld_sym_ofst;	/* offset of ld symbol table		*/
 	int ld_sym_size;		/* size of ld symbol table	*/
 
-	//wyong, 20230820 
 	Elf64_Sym *ld_sym_tab = NULL; /* ld symbol table			*/
-
 	off_t str_ofst = 0;	/* offset of debug string table		*/
 	int str_size = 0;		/* size of debug string table	*/
 	char *str_tab = NULL;	/* debug string table			*/
 	off_t sym_ofst = 0;	/* offset of debug symbol table		*/
 	int sym_size = 0;		/* size of debug symbol table	*/
 
-	//wyong, 20230820 
 	Elf_Sym *sym_tab = NULL;/* debug symbol table			*/
-
 	FILE *file;		/* opened on filename			*/
 	int i;			/* counter var				*/
 	int retval = -1;	/* return val: # of symbols parsed      */
@@ -7062,12 +6320,8 @@ int stab_file_parse(struct nel_eng *eng, char *filename)
 		stab_trace(eng, "entering stab_file_parse [\nfilename = %s\n\n", filename); 
 	});
 
-	//added by zhangbin, 2006-7-26
 	eng->prog_name = filename;
-	//end
 	
-	//printf("Hi, this is stab_file_parse\n");
-	//printf("stab_file_parse:1\n");
 
 #ifdef STAB_DEBUG
 	if(eng->stab_debug_level ) {
@@ -7085,7 +6339,6 @@ int stab_file_parse(struct nel_eng *eng, char *filename)
 	stab_init(eng, filename);
 
 
-	//printf("stab_file_parse:2\n");
 	/******************************************************/
 	/* eng->stab->sym_ct is the return value of nel_stab () */
 	/* set it to 0 in case we jump to end on an error     */
@@ -7105,61 +6358,39 @@ int stab_file_parse(struct nel_eng *eng, char *filename)
 	/**************************************************************/
 
 	//printf("stab_file_parse:4\n");
-
-	//Elf32_Ehdr -> Elf64_Ehdr, wyong, 20230809 
 	if (fread ((char *) &header, sizeof (Elf64_Ehdr), 1, file) != 1) {
 		stab_error (eng, "error reading \"%s\": can't read Elf header", filename);
-
-		//wyong, 20230809 
-		//printf("stab_file_parse(4-1) error reading \"%s\": can't read Elf header", filename);
-
 		fclose (file);
 		goto end;
 	}
 
 #define E_BADMAG(hdr)	(( hdr.e_ident[EI_MAG0] != ELFMAG0) || (hdr.e_ident[EI_MAG1] != ELFMAG1) || (hdr.e_ident[EI_MAG2] != ELFMAG2) || (hdr.e_ident[EI_MAG3] != ELFMAG3))
 
-//wyong, 20230809 
 //#define E_BADELF(hdr) 	((hdr.e_ident[EI_VERSION] != EV_CURRENT) ||(hdr.e_ident[EI_CLASS] != ELFCLASS32)) 
 #define E_BADELF(hdr) 	((hdr.e_ident[EI_VERSION] != EV_CURRENT) || (hdr.e_ident[EI_CLASS] != ELFCLASS64)) 
 
 
 	if (E_BADMAG (header)) {
 		stab_error (eng, "error reading \"%s\": bad magic number", filename);
-
-		//wyong, 20230809 
-		//printf("stab_file_parse(4-2), error reading \"%s\": bad magic number", filename);
-
 		fclose (file);
 		goto end;
 	}
 	if (E_BADELF (header)) {
 		stab_error (eng, "error reading \"%s\": bad Elf header", filename);
-
-		//wyong, 20230809 
-		//printf("stab_file_parse(4-3) error reading \"%s\": bad Elf header", filename);
-
 		fclose (file);
 		goto end;
 	}
 	if (header.e_shstrndx == SHN_UNDEF) {
 		stab_error (eng, "error reading \"%s\": no string section", filename);
-
-		//wyong, 20230809 
-		//printf("stab_file_parse(4-4) error reading \"%s\": no string section", filename);
-
 		fclose (file);
 		goto end;
 	}
 
-	//printf("stab_file_parse:5\n");
 	/*****************************************************/
 	/* find section header for the section string table. */
 	/* it contains the names of the section headers.     */
 	/*****************************************************/
 	fseek(file, header.e_shoff + header.e_shentsize * header.e_shstrndx, 0);
-
-	//Elf32_Shdr -> Elf64_Shdr, wyong, 20230809 
 	if (fread ((char *) &sec_hdr, sizeof (Elf64_Shdr), 1, file) != 1) {
 		stab_error (eng, "error reading \"%s\": can't read string section header", filename);
 		fclose (file);
@@ -7168,7 +6399,6 @@ int stab_file_parse(struct nel_eng *eng, char *filename)
 	sh_str_ofst = sec_hdr.sh_offset;
 	sh_str_size = sec_hdr.sh_size;
 
-	//printf("stab_file_parse:6\n");
 	/****************************************************************/
 	/* now search through the section table, searching for sections */
 	/* named ".strtab", ".symtab" ".debugstrtab", and ".debug"      */
@@ -7182,7 +6412,6 @@ int stab_file_parse(struct nel_eng *eng, char *filename)
 			continue;
 		}
 
-		//Elf32_Shdr -> Elf64_Shdr, wyong, 20230809 
 		if (fread ((char *) &sec_hdr, sizeof (Elf64_Shdr), 1, file) != 1) {
 			continue;
 		}
@@ -7215,7 +6444,6 @@ int stab_file_parse(struct nel_eng *eng, char *filename)
 		}
 	}
 
-	//printf("stab_file_parse:7\n");
 	/*****************************************************/
 	/* make sure we found all of the following sections: */
 	/*    ".strtab"      - ld string table               */
@@ -7226,31 +6454,26 @@ int stab_file_parse(struct nel_eng *eng, char *filename)
 	/* is stored in will have the value 0.               */
 	/*****************************************************/
 	if (ld_str_size == 0) {
-		//printf("stab_file_parse:7.1\n");
 		stab_error (eng, "error reading \"%s\": .strtab section not found", filename);
 		fclose (file);
 		goto end;
 	}
 	if (ld_sym_size == 0) {
-		//printf("stab_file_parse:7.2\n");
 		stab_error (eng, "error reading \"%s\": .symtab section not found", filename);
 		fclose (file);
 		goto end;
 	}
 	if (str_size == 0) {
-		//printf("stab_file_parse:7.3\n");
 		stab_error (eng, "error reading \"%s\": .debugstrtab section not found", filename);
 		fclose (file);
 		goto end;
 	}
 	if (sym_size == 0) {
-		//printf("stab_file_parse:7.4\n");
 		stab_error (eng, "error reading \"%s\": .debug section not found", filename);
 		fclose (file);
 		goto end;
 	}
 
-	//printf("stab_file_parse:8\n");
 	/******************************************************/
 	/* allocate space for the string table and read it in */
 	/******************************************************/
@@ -7262,15 +6485,11 @@ int stab_file_parse(struct nel_eng *eng, char *filename)
 	}
 	eng->stab->ld_str_tab = ld_str_tab;
 	eng->stab->ld_str_size = ld_str_size;
-	//printf("stab_file_parse(8-1), ld_str_size = %d\n", ld_str_size) ;
 
 	/*********************************************************/
 	/* allocate space for the ld symbol table and read it in */
 	/*********************************************************/
-	//Elf32_Sym -> Elf64_Sym, wyong, 20230809 
-	//printf("stab_file_parse(8-2), ld_sym_size = %d\n", ld_sym_size) ;
 	ld_sym_size /= sizeof (Elf64_Sym);
-	//printf("stab_file_parse(8-3), ld_sym_size = %d\n", ld_sym_size) ;
 	nel_alloca (ld_sym_tab, ld_sym_size, Elf64_Sym);
 	if (fseek (file, ld_sym_ofst, 0) || (fread ((char *) ld_sym_tab, ld_sym_size * sizeof (Elf64_Sym), 1, file) != 1)) {
 		stab_error (eng, "error reading \"%s\": can't read ld symbol table", filename);
@@ -7280,7 +6499,6 @@ int stab_file_parse(struct nel_eng *eng, char *filename)
 	eng->stab->ld_sym_tab = ld_sym_tab;
 	eng->stab->ld_sym_size = ld_sym_size;
 
-	//printf("stab_file_parse:9\n");
 	/************************************************************/
 	/* allocate space for the debug string table and read it in */
 	/************************************************************/
@@ -7292,14 +6510,11 @@ int stab_file_parse(struct nel_eng *eng, char *filename)
 	}
 	eng->stab->str_tab = str_tab;
 	eng->stab->str_size = str_size;
-	//printf("stab_file_parse(9-1), str_size = %d\n", str_size) ;
 
 	/*************************************************************/
 	/* allocate space for the debug symbol table and read it in */
 	/*************************************************************/
-	//printf("stab_file_parse(9-2), sym_size = %d\n", sym_size) ;
 	sym_size /= sizeof (Elf_Sym);
-	//printf("stab_file_parse(9-3), sym_size = %d\n", sym_size) ;
 	nel_alloca (sym_tab, sym_size, Elf_Sym);
 	if (fseek (file, sym_ofst, 0) || (fread ((char *) sym_tab, sym_size * sizeof (Elf_Sym), 1, file) != 1)) {
 		stab_error (eng, "error reading \"%s\": can't read debug symbol table", filename);
@@ -7309,10 +6524,6 @@ int stab_file_parse(struct nel_eng *eng, char *filename)
 	eng->stab->sym_tab = sym_tab;
 	eng->stab->sym_size = sym_size;
 
-	//printf("stab_file_parse(9-4), sizeof(Elf_Sym)= %d\n", sizeof(Elf_Sym)) ;
-	//printf("stab_file_parse(9-5), sizeof(Elf32_Sym)= %d\n", sizeof(Elf32_Sym)) ;
-	//printf("stab_file_parse(9-6), sizeof(Elf64_Sym)= %d\n", sizeof(Elf64_Sym)) ;
-
 
 	/******************************************************************/
 	/* we have now read in the debug and ld symbol and string tables. */
@@ -7320,7 +6531,6 @@ int stab_file_parse(struct nel_eng *eng, char *filename)
 	/* on Berkeley, they are the same, so ld_str_tab = str_tab        */
 	/* and ld_sym_tab = sym_tab.                                      */
 	/******************************************************************/
-	//printf("stab_file_parse:10\n");
 
 	/**************************************************************/
 	/* set a jmp_buf for a fatal error scanning the symbol table, */
@@ -7337,7 +6547,6 @@ int stab_file_parse(struct nel_eng *eng, char *filename)
 
 		nel_jmp_buf stab_err_jmp;
 
-		//printf("stab_file_parse:11\n");
 		/******************************************************/
 		/* if we are debugging, save the value of nel_tracing, */
 		/* so that we may restore it after scanning the stab. */
@@ -7547,23 +6756,16 @@ post_stab:
 		/*******************************************************/
 		nel_remove_NULL_values (eng, eng->nel_static_ident_hash, nel_static_symbol_dealloc);
 
-		
-		//NOTE,NOTE,NOTE, wyong, 2006.4.4 
+		add_symbol_id_init(eng);
 		nel_lib_init(eng);
 
 	}
 
 
 end:
-	//added by zhangbin to print peek info
-	if(eng->peek_arg_link_begin)	//zhangbin, 2006-5-15
+	if(eng->peek_arg_link_begin)
 		PrintPeekInfo(eng);
 
-	//PrintPeekInfo();
-	//PrintAllSymbolTables(eng);
-	//PrintPeekInfo();
-
-	//wyong, 20230810 
 	if(eng->stab_debug_level ) {
 		nel_symbol *test_t_symbol; 
 		//test_t_symbol = stab_lookup_ident(eng, "stream");
@@ -7579,11 +6781,10 @@ end:
 		}
 	}
 
-	//added by zhangbin, free peek arg link
 	//for(this = eng->peek_arg_link_begin; this ; this = next){
 	//	next = this->next;
 	//	free (this);
-	//}//zhangbin, 2006-5-15
+	//}
 		
 
 	if (ld_str_tab != NULL) {
@@ -7596,7 +6797,6 @@ end:
 		nel_dealloca (str_tab);
 	}
 	if (sym_tab != NULL) {
-		/* wyong, 2004.6.1 bug fixed */
 		nel_dealloca (sym_tab);
 	}
 
@@ -7618,18 +6818,17 @@ end:
 }
 
 
-//added by zhangbin, 2006-7-19
 //calling nel_dealloca to free stab type chunks,
 //affter doing this, all stab type pointer should be illegal!!!!!!!!!!!!1
 void stabtype_dealloc(struct nel_eng *eng)
 {
-	while(nel_stab_type_chunks)
-	{
+	while(nel_stab_type_chunks) {
 		nel_stab_type_chunk *chunk = nel_stab_type_chunks->next;
 		nel_dealloca(nel_stab_type_chunks->start); 
 		nel_dealloca(nel_stab_type_chunks); 
 		nel_stab_type_chunks = chunk;
 	}
-	nel_stab_types_end = nel_stab_types_next = nel_free_stab_types = NULL;
+	nel_stab_types_end = NULL;
+	nel_stab_types_next = NULL;
+	nel_free_stab_types = NULL;
 }
-//end

@@ -6,10 +6,7 @@
 #include "expr.h"
 #include "stmt.h"
 #include "sym.h"
-
-//added by zhangbin, 2006-5-22
-#include <type.h>
-//end
+#include "type.h"
 
 /*****************************************************/
 /* we may have at most 30 words in the argument list */
@@ -66,10 +63,7 @@ struct eng_intp{
 	char *retval_loc;
 	va_list *formal_ap;
 	char *unit_prefix;	
-	
-	//added by zhangbin, 2006-5-22
 	nel_type *ret_type;
-	//end
 };
 
 
@@ -139,7 +133,10 @@ extern int intp_fatal_error(struct nel_eng *, char *, ...);
 #define intp_push_rhs(_eng,_q)		{ nel_debug ({ nel_trace (_eng, "pushing nel rhs {\n%1S\n", (_q)); }); if ((_eng)->intp->semantic_stack_next >= (_eng)->intp->semantic_stack_end) intp_stmt_error ((_eng), nel_semantic_stack_overflow_message); (*(++((_eng)->intp->semantic_stack_next))).nel_rhs = (_q); }
 
 #define intp_push_type(_eng,_q)		{ nel_debug ({ nel_trace (_eng, "pushing type {\n%1T\n", (_q)); }); if ((_eng)->intp->semantic_stack_next >= (_eng)->intp->semantic_stack_end) intp_stmt_error ((_eng), nel_semantic_stack_overflow_message); (*(++((_eng)->intp->semantic_stack_next))).type = (_q); }
-#define intp_push_value(_eng,_q,_typ)		{ nel_debug ({ nel_trace (_eng, "pushing value 0x%x {\n\n", (_q)); }); if ((_eng)->intp->semantic_stack_next >= (_eng)->intp->semantic_stack_end) intp_stmt_error ((_eng), nel_semantic_stack_overflow_message); (*(++((_eng)->intp->semantic_stack_next))).integer = (int) (_q); }
+
+
+#define intp_push_value(_eng,_q,_typ)		{ nel_debug ({ nel_trace (_eng, "pushing value 0x%x {\n\n", (_q)); }); if ((_eng)->intp->semantic_stack_next >= (_eng)->intp->semantic_stack_end) intp_stmt_error ((_eng), nel_semantic_stack_overflow_message); (*(++((_eng)->intp->semantic_stack_next))).integer = (long) (_q); }
+
 
 #define intp_push_expr(_eng,_q)		{ nel_debug ({ nel_trace (_eng, "pushing expr {\n%1X\n", (_q)); }); if ((_eng)->intp->semantic_stack_next >= (_eng)->intp->semantic_stack_end) intp_stmt_error ((_eng), nel_semantic_stack_overflow_message); (*(++((_eng)->intp->semantic_stack_next))).expr = (_q); }
 #define intp_push_expr_list(_eng,_q)	{ nel_debug ({ nel_trace (_eng, "pushing expr_list {\n%1Y\n", (_q)); }); if ((_eng)->intp->semantic_stack_next >= (_eng)->intp->semantic_stack_end) intp_stmt_error ((_eng), nel_semantic_stack_overflow_message); (*(++((_eng)->intp->semantic_stack_next))).expr_list = (_q); }
@@ -336,7 +333,6 @@ nel_symbol *intp_lookup_ident(struct nel_eng *eng, char *name);
 /* the argument register set is homogenous.                     */
 /****************************************************************/
 
-//last parameter, int * -> int **, wyong, 20230821 
 extern void intp_apply (struct nel_eng *, char *, union nel_TYPE *, char (*)(), int, int **);
 
 /*************************************************************/
@@ -375,6 +371,9 @@ extern int nel_func_call(struct nel_eng *, char *, struct nel_SYMBOL *, ...);
 
 extern char *intp_dyn_value_alloc (struct nel_eng *eng, register unsigned_int bytes, register unsigned_int alignment);
 extern nel_symbol *intp_dyn_symbol_alloc (struct nel_eng *eng, char *name, nel_type *type, char *value, nel_C_token class, unsigned_int lhs, nel_L_token source_lang, int level);
+
+nel_symbol *intp_eval_expr_2 (struct nel_eng *eng, register nel_expr *expr);
+int intp_eval_stmt_2 (struct nel_eng *eng, nel_stmt *stmt);
 
 #endif /* EVAL_H */
 

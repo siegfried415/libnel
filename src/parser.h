@@ -71,15 +71,14 @@ struct eng_gram{
 	//va_list *formal_ap;
 	//char *unit_prefix;
 	union nel_STMT *stmts;
-	union nel_STMT *last_stmt;	//wyong, 2006.3.10
+	union nel_STMT *last_stmt;
 	union nel_STMT **append_pt;
 	union nel_STMT *break_target;
 	union nel_STMT *continue_target;
 
-	int rhs_cnt;			//wyong, 2006.3.11 
+	int rhs_cnt;		
 
-	/*NOTE,NOTE,NOTE, maybe need put the following into 
-	struct eng_lexier,wyong, 2005.10.04 */
+	/*maybe need put the following into struct eng_lexier */
 	//struct eng_lexier *lex;
 
 	/************************************************/
@@ -94,7 +93,7 @@ struct eng_gram{
 	char *tokend;
 	char *buf;
 	int  want_assign;
-	int  want_regexp;	/* wyong, 2006.6.23 */
+	int  want_regexp;
 
 
 	FILE *infile;
@@ -240,7 +239,11 @@ extern int parser_fatal_error(struct nel_eng *, char *, ...);
 #define parser_push_type(_eng,_q)		{ nel_debug ({ nel_trace (_eng, "pushing type {\n%1T\n", (_q)); }); if ((_eng)->parser->semantic_stack_next >= (_eng)->parser->semantic_stack_end) parser_stmt_error ((_eng), nel_semantic_stack_overflow_message); (*(++((_eng)->parser->semantic_stack_next))).type = (_q); }
 
 
-#define parser_push_value(_eng,_q,_typ)		{ nel_debug ({ nel_trace (_eng, "pushing value 0x%x {\n\n", (_q)); }); if ((_eng)->parser->semantic_stack_next >= (_eng)->parser->semantic_stack_end) parser_stmt_error ((_eng), nel_semantic_stack_overflow_message); (*(++((_eng)->parser->semantic_stack_next))).integer = (int) (_q); }
+
+#define parser_push_value(_eng,_q,_typ)		{ nel_debug ({ nel_trace (_eng, "pushing value 0x%x {\n\n", (_q)); }); if ((_eng)->parser->semantic_stack_next >= (_eng)->parser->semantic_stack_end) parser_stmt_error ((_eng), nel_semantic_stack_overflow_message); (*(++((_eng)->parser->semantic_stack_next))).integer = (long) (_q); }
+
+
+
 #define parser_push_expr(_eng,_q)		{ nel_debug ({ nel_trace (_eng, "pushing expr {\n%1X\n", (_q)); }); if ((_eng)->parser->semantic_stack_next >= (_eng)->parser->semantic_stack_end) parser_stmt_error ((_eng), nel_semantic_stack_overflow_message); (*(++((_eng)->parser->semantic_stack_next))).expr = (_q); }
 #define parser_push_expr_list(_eng,_q)	{ nel_debug ({ nel_trace (_eng, "pushing expr_list {\n%1Y\n", (_q)); }); if ((_eng)->parser->semantic_stack_next >= (_eng)->parser->semantic_stack_end) parser_stmt_error ((_eng), nel_semantic_stack_overflow_message); (*(++((_eng)->parser->semantic_stack_next))).expr_list = (_q); }
 #define parser_push_stmt(_eng,_q)		{ nel_debug ({ nel_trace (_eng, "pushing stmt {\n%1K\n", (_q)); }); if ((_eng)->parser->semantic_stack_next >= (_eng)->parser->semantic_stack_end) parser_stmt_error ((_eng), nel_semantic_stack_overflow_message); (*(++((_eng)->parser->semantic_stack_next))).stmt = (_q); }
@@ -442,5 +445,10 @@ extern void parser_dealloc(struct nel_eng *_eng);
 extern int parser_eval_yy(struct nel_eng *);
 extern int  parser_eval(struct nel_eng *, char *, /* FILE *,*/ char *, va_list * /*, unsigned_int, unsigned_int */ );
 extern int  nel_file_parse(struct nel_eng *, int, char **);
+
+nel_symbol *parser_dyn_symbol_alloc (struct nel_eng *eng, char *name, nel_type *type, char *value, nel_C_token class, unsigned_int lhs, nel_L_token source_lang, int level);
+void parser_diagnostic(struct nel_eng *eng, char *message, ...);
+void parser_trace (struct nel_eng *eng, char *message, ...); 
+void parser_coerce (struct nel_eng *eng, nel_type *new_type, char *new_value, nel_type *old_type, char *old_value);
 
 #endif /* _PARSER_H */

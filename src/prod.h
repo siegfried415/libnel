@@ -37,7 +37,7 @@ typedef struct prodinfo
 {
         unsigned int rhsLen;                // # of RHS symbols
         NtIndex lhsIndex;                    // 'ntIndex' of LHS
-        Relation rel;				/*wyong, 2004.12.1 */
+        Relation rel;			
         struct nel_SYMBOL *action;
 }
 ProdInfo;
@@ -48,5 +48,7 @@ extern struct nel_SYMBOL *prod_symbol_alloc(struct nel_eng *, char *, union nel_
 extern void prod_symbol_dealloc(struct nel_eng *, struct nel_SYMBOL *);
 extern int remove_empty_prods(struct nel_eng *eng);
 extern void emit_prods(struct nel_eng *eng /*,FILE *fp*/);
+struct nel_SYMBOL *pseudo_prod_alloc(struct nel_eng *eng);
+struct nel_SYMBOL *others_prod_alloc(struct nel_eng *eng, int rhs_number);
 
 #endif

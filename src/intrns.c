@@ -82,7 +82,6 @@ void call_nel_do_print (char *fmt, ... ) {
 
 /*****************************************************************************/
 /* nel_ntrn_print () pretty prints its arguments.                            */
-/* wyong, 20230908 							     */
 /*****************************************************************************/
 nel_symbol *nel_ntrn_print (struct nel_eng *eng, register nel_symbol *func, register int nargs, register nel_stack *arg_start)
 {
@@ -229,7 +228,6 @@ nel_symbol *nel_ntrn_idof (struct nel_eng *eng, register nel_symbol *func, regis
 	/**************************************************/
 	retval= intp_dyn_symbol_alloc (eng, NULL, func->type->function.return_type, intp_dyn_value_alloc (eng, sizeof (char *), nel_alignment_of (char *)), nel_C_RESULT, 0, nel_L_NEL, eng->intp->level);
 
-	/*bugfix for event/event-decl-10.nel, wyong, 2006.6.1 */
 	symbol = lookup_event_symbol(eng, (char *)arg_start->symbol->name);
 	if(symbol) {
 		*((int *) (retval->value)) =
@@ -237,7 +235,7 @@ nel_symbol *nel_ntrn_idof (struct nel_eng *eng, register nel_symbol *func, regis
 			|| symbol->class == nel_C_NONTERMINAL) 
 			? ((symbol->_reachable == 0) ? 0 
 				:encodeSymbolId(eng, symbol->id,symbol->class))
-			: 0 /*symbol->id wyong, 2006.6.20 */ ;
+			: 0 ;
 	} else {
 		intp_fatal_error (eng, "undeclaration of event %s", (char *)arg_start->symbol->name);
 		*((int *) (retval->value)) = 0;
@@ -250,7 +248,7 @@ nel_symbol *nel_ntrn_idof (struct nel_eng *eng, register nel_symbol *func, regis
 
 #if 0
 /*****************************************************************************/
-/* nel_ntrn_new() call malloc to create memory,    wyong, 2005.10.27 */
+/* nel_ntrn_new() call malloc to create memory				     */
 /*****************************************************************************/
 nel_symbol *nel_ntrn_new(struct nel_eng *eng, register nel_symbol *func, register int nargs, register nel_stack *arg_start)
 {
@@ -287,13 +285,7 @@ nel_symbol *nel_ntrn_new(struct nel_eng *eng, register nel_symbol *func, registe
 	if(size <= 0 ){
 		intp_stmt_error (eng, "(nel_ntrn_new#2): size =%d\n", size);
 	}else{
-		//modified by zhangbin, 2006-7-17, malloc=>nel_malloc
-#if 1
 		nel_malloc(retval->value, size, char);
-#else
-		*((void **) (retval->value)) = malloc(size);
-#endif
-		//end modified, 2006-7-17
 	}
 
 	nel_debug ({ nel_trace (eng, "] exiting nel_ntrn_new\nretval = \n%S\n", retval); });
@@ -303,7 +295,7 @@ nel_symbol *nel_ntrn_new(struct nel_eng *eng, register nel_symbol *func, registe
 
 #if 0
 /*****************************************************************************/
-/* nel_ntrn_delete() free memory created by nel_ntrn_new, wyong, 2005.10.27  */
+/* nel_ntrn_delete() free memory created by nel_ntrn_new                     */
 /*****************************************************************************/
 nel_symbol *nel_ntrn_delete(struct nel_eng *eng, register nel_symbol *func, register int nargs, register nel_stack *arg_start)
 {
@@ -594,7 +586,6 @@ post_getrec:
 
         /*
          * create symbol of call_nel_do_print  for nel_ntrn_print 
-	 * wyong, 20230908 
          */
 
         symbol = nel_lookup_symbol("call_nel_do_print", eng->nel_static_ident_hash, eng->nel_static_location_hash,  NULL);
@@ -626,8 +617,6 @@ post_getrec:
                 /* call_nel_do_print was successfully inserted */
         }
 
-
-	//wyong, 20230817 
 
 	/************/
 	/* print () */

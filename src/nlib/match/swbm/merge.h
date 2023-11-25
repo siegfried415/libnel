@@ -1,8 +1,3 @@
-/*
- * swbm_merge.h
- * $Id: swbm_merge.h,v 1.2 2006/03/17 05:50:16 wyong Exp $
- */
-
 #ifndef __SWBM_MERGE_H
 #define __SWBM_MERGE_H
 

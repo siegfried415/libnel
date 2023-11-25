@@ -1,8 +1,3 @@
-/*
- * stream.h
- * $Id: stream.h,v 1.6 2006/12/06 07:00:59 yanf Exp $
- */
- 
 #ifndef __STREAM_H
 #define __STREAM_H
 
@@ -34,5 +29,6 @@ struct stream_state *alloc_stream_state(void);
 void dealloc_stream_state(struct stream_state *state); 
 struct stream_state *insert_stream_state(int caller_id, struct stream_state *state); 
 struct stream_state *lookup_stream_state(struct stream *stream, int caller_id); 
+int stream_init(struct nel_eng *eng);
 
 #endif

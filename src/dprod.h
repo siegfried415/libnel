@@ -27,7 +27,7 @@ struct dprod {
 	/* sentential form can derive epsilon (the empty string)	*/
 	int canDeriveEmpty;
 
-	/* timeout value on this dotted production, wyong, 2004.11.27 	*/
+	/* timeout value on this dotted production			*/
 	int timeout;
 
 };

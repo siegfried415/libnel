@@ -2,15 +2,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "type.h"
+
 #include "engine.h"
+#include "type.h"
 #include "nlib/shellcode.h"
 #include "sym.h"
-
-//added by zhangbin, 2006-7-17
 #include "mem.h"
+
 extern nel_lock_type nel_malloc_lock;
-//end
 
 #define NONE 		0
 #define REG  		1
@@ -133,14 +132,7 @@ static trieptr new_trie_node(int nr_of_operands,int *ops, char * string, int opc
   int i=0;
   trieptr ptr;
 
-  //modified by zhangbin, 2006-7-17, malloc=>nel_malloc
-#if 1
-  nel_malloc(ptr, 1, struct trienode);
-  if(!ptr){
-#else
   if ((ptr=(trieptr) malloc(sizeof(struct trienode)))==NULL) {
-#endif
-  //end, 2006-7-17
     error("could not make new node"); 
   }
   
@@ -198,14 +190,7 @@ trieptr insertString(trieptr trie, int number_of_opcode_bytes,int original_opcod
 {
   
   if (trie==NULL) {
-//modified by zhangbin, 2006-7-17, malloc=>nel_malloc
-#if 1
-	nel_malloc(trie, 1, struct trienode);
-	if(!trie){
-#else
     if ((trie = (trieptr) malloc(sizeof(struct trienode)))==NULL) {
-#endif
-//end, 2006-7-17
       error("could not malloc!");
     } else {
       clear_node(trie);
@@ -19899,13 +19884,7 @@ trieptr buildTrie_n(/*char * filename*/ void )
 		if(*buffer != '$')
 		{
 			char * stringptr=NULL;
-			//modified by zhangbin, 2006-7-17, malloc=>nel_malloc
-#if 1
-			nel_malloc(tmpstring, strlen(buffer)+1, char);
-#else
 			tmpstring=(char *) malloc(strlen(buffer)+1);
-#endif
-			//end, 2006-7-17
 			if (tmpstring==NULL) {
 				break;	
 			}
@@ -19928,14 +19907,7 @@ trieptr buildTrie_n(/*char * filename*/ void )
 			
 			if (number_of_args>0)
 				stringptr=getStartOfNextOpcode(stringptr);
-			//modified by zhangbin, 2006-7-17
-#if 1
-			nel_malloc(args, number_of_args, int);
-			if(!args){
-#else
 			if ((args = malloc(sizeof(int)*number_of_args))==NULL) {
-#endif
-			//end, 2006-7-17
 				error("can't malloc for tmpstring");
 			}
 			
@@ -19969,10 +19941,6 @@ trieptr buildTrie_n(/*char * filename*/ void )
 		}
 		
 		j++;
-		//added by zhangbin, 2006-7-21
-		//nel_dealloca(args);
-		//nel_dealloca(tmpstring);
-		//end
 	}
 	
 	//printf("finished reading the file \n\n");
@@ -20048,7 +20016,7 @@ int shellcode_init(struct nel_eng *eng)
 		symbol->value = (char *) has_x86_shellcode;
 
 	}else if(symbol->value != (char *)has_x86_shellcode) {
-		nel_warning(eng, "the earily inserted symbol value have difference value with has_x86_shellcode!\n");
+		fprintf(stderr, "the earily inserted symbol value have difference value with has_x86_shellcode!\n");
 
 	}
 	else {

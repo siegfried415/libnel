@@ -64,14 +64,7 @@ int dprod_alloc(struct nel_eng *eng, struct nel_SYMBOL *prod)
 	int posn, rhsLen = prod->type->prod.rhs_num;
 	struct nel_RHS *sl;
 	
-	//modified by zhangbin, 2006-7-17, malloc=>nel_malloc
-#if 1
 	nel_malloc(eng->gen->dottedProds[prod->id], rhsLen+1, struct dprod);
-#else
-	eng->gen->dottedProds[prod->id]= (struct dprod *)malloc(sizeof(struct dprod)*(rhsLen+1));
-#endif
-	//end modified, 2006-7-17
-
 	for (posn=0, sl=prod->type->prod.rhs; posn<=rhsLen;posn++,sl= sl ? sl->next:(struct nel_RHS *)0) {
 		struct dprod *dprod= &eng->gen->dottedProds[prod->id][posn]; 
 		dprod->prod = prod;
@@ -79,10 +72,8 @@ int dprod_alloc(struct nel_eng *eng, struct nel_SYMBOL *prod)
 		dprod->afterDot = (posn != rhsLen)?sl->symbol:(nel_symbol *)0;
 		dprod->dotAtEnd = (posn == rhsLen);
 		dprod->canDeriveEmpty = 0;
-		//added by zhangbin, 2006-7-24
 		dprod->firstSet.bitmap = NULL;
 		dprod->firstSet.bitmapLen = dprod->firstSet.numbers = 0;
-		//end
 	}
 
 	return 0;

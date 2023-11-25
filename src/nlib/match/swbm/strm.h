@@ -1,14 +1,7 @@
-/*
- * swbm_strm.h
- * $Id: swbm_strm.h,v 1.2 2006/03/17 05:50:16 wyong Exp $
- */
- 
-
 #ifndef __SWBM_STRM_H
 #define __SWBM_STRM_H
 
 #include "nlib/match/swbm.h"
-//#include "intlist.h"
 
 #define MAX_REMAIN_TEXT_LEN	256
 

@@ -29,7 +29,6 @@ extern int nel_stab_tend;	/* tracing ends with this #string	*/
 extern unsigned int nel_stab_check_redecs;
 
 
-// add by wyong 
 typedef struct elf_sym
 {
         Elf32_Word	st_shndx;
@@ -119,9 +118,9 @@ struct eng_stab{
 
 	char *ld_str_tab;
 	int ld_str_size;
-	Elf_Sym *ld_sym_tab;
+	Elf64_Sym *ld_sym_tab;
 	int ld_sym_size;
-	Elf_Sym *ld_sym_scan;
+	Elf64_Sym *ld_sym_scan;
 
 
 	int start_code;
@@ -223,7 +222,10 @@ extern int stab_fatal_error(struct nel_eng *, char *, ...);
 #define stab_push_type(_eng,_q)		{ nel_debug ({ nel_trace (_eng, "pushing type {\n%1T\n", (_q)); }); if ((_eng)->stab->semantic_stack_next >= (_eng)->stab->semantic_stack_end) stab_stmt_error ((_eng), nel_semantic_stack_overflow_message); (*(++((_eng)->stab->semantic_stack_next))).type = (_q); }
 
 
-#define stab_push_value(_eng,_q,_typ)		{ nel_debug ({ nel_trace (_eng, "pushing value 0x%x {\n\n", (_q)); }); if ((_eng)->stab->semantic_stack_next >= (_eng)->stab->semantic_stack_end) stab_stmt_error ((_eng), nel_semantic_stack_overflow_message); (*(++((_eng)->stab->semantic_stack_next))).integer = (int) (_q); }
+
+#define stab_push_value(_eng,_q,_typ)		{ nel_debug ({ nel_trace (_eng, "pushing value 0x%x {\n\n", (_q)); }); if ((_eng)->stab->semantic_stack_next >= (_eng)->stab->semantic_stack_end) stab_stmt_error ((_eng), nel_semantic_stack_overflow_message); (*(++((_eng)->stab->semantic_stack_next))).integer = (long) (_q); }
+
+
 #define stab_push_expr(_eng,_q)		{ nel_debug ({ nel_trace (_eng, "pushing expr {\n%1X\n", (_q)); }); if ((_eng)->stab->semantic_stack_next >= (_eng)->stab->semantic_stack_end) stab_stmt_error ((_eng), nel_semantic_stack_overflow_message); (*(++((_eng)->stab->semantic_stack_next))).expr = (_q); }
 #define stab_push_expr_list(_eng,_q)	{ nel_debug ({ nel_trace (_eng, "pushing expr_list {\n%1Y\n", (_q)); }); if ((_eng)->stab->semantic_stack_next >= (_eng)->stab->semantic_stack_end) stab_stmt_error ((_eng), nel_semantic_stack_overflow_message); (*(++((_eng)->stab->semantic_stack_next))).expr_list = (_q); }
 #define stab_push_stmt(_eng,_q)		{ nel_debug ({ nel_trace (_eng, "pushing stmt {\n%1K\n", (_q)); }); if ((_eng)->stab->semantic_stack_next >= (_eng)->stab->semantic_stack_end) stab_stmt_error ((_eng), nel_semantic_stack_overflow_message); (*(++((_eng)->stab->semantic_stack_next))).stmt = (_q); }
@@ -458,8 +460,6 @@ extern int parse_stab_type_ex(struct nel_eng *eng, const char *typename, const c
 extern void nel_stab_init(struct nel_eng *_eng, char *_filename);
 extern void nel_stab_dealloc(struct nel_eng *_eng);
 extern int stab_file_parse(struct nel_eng *, char *);
-
-//added by zhangbin, 2006-7-19
 void stabtype_dealloc(struct nel_eng *eng);
-//end
+
 #endif

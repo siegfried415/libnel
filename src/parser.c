@@ -7,15 +7,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <string.h>
 
-#include <engine.h>
-#include <errors.h>
-#include <io.h>
-#include <intp.h>
-#include <parser.h>
-#include <lex.h>
+#include "engine.h"
+#include "errors.h"
+#include "io.h"
+#include "intp.h"
+#include "parser.h"
+#include "lex.h"
 #include "mem.h"
+#include "evt.h" 
+#include "gen.h" 
 
+#include "peek.h" 
 
 #ifdef LICENSE
 #include <license.h>
@@ -58,11 +62,11 @@ void parser_diagnostic(struct nel_eng *eng, char *message, ...)
 		/*******************************************/
 		nel_lock (&nel_error_lock);
 
-		sprintf(buffer, message, args);
-		write(2, buffer, strlen(buffer));
-		fprintf (stderr, "\n");
+		//sprintf(buffer, message, args);
+		//write(2, buffer, strlen(buffer));
+		//fprintf (stderr, "\n");
 
-		//nel_do_print (stdout, message, args);
+		nel_do_print (stdout, message, args);
 
 		/*************************/
 		/* exit critical section */
@@ -300,7 +304,7 @@ int parser_fatal_error (struct nel_eng *eng, char *message, ...)
 		fprintf (stderr, "exiting\n");
 
 		nel_unlock (&nel_error_lock);
-		exit (1);	//wyong, 2006.4.10 
+		exit (1);
 	}
 
 	return (0);
@@ -574,7 +578,6 @@ nel_type *parser_resolve_type (struct nel_eng *eng, register nel_type *type, cha
 	case nel_D_ARRAY: 
 
 #if 0
-		/* do nothing here , wyong, 2006.4.30 */
 		{
 		int lb;
 		int ub;
@@ -645,7 +648,6 @@ nel_type *parser_resolve_type (struct nel_eng *eng, register nel_type *type, cha
 
 #else
 
-				/* wyong, 2006.4.30 */
 				bound_sym =  intp_eval_expr_2(eng, bound_expr);
 
 #endif
@@ -721,7 +723,6 @@ nel_type *parser_resolve_type (struct nel_eng *eng, register nel_type *type, cha
 
 	case nel_D_STRUCT:
 	case nel_D_UNION:
-		/* wyong, 2005.6.2 */
 #if 1
 		/****************************************************/
 		/* struct/unions members must be defined statically */
@@ -879,9 +880,7 @@ void parser_dealloc(struct nel_eng *_eng)
 
 		//(_eng)->nel_parser_init_flag = 0;
 		
-		//added by zhangbin, 2006-7-20
 		//nel_dealloca(_eng->parser);
-		//end
 	}
 
 }
@@ -933,10 +932,8 @@ int parser_eval (struct nel_eng *eng, char *filename, char *retval_loc, va_list 
 		return -1;
 	} 
 	
-	//added by zhangbin, 2006-6-2
 	if(!strcmp(eng->parser->filename, abs_fname))
 		parser_stmt_error(eng, "include %s itself", filename);
-	//end
 
 #ifdef LICENSE 
 	if(check_rule(abs_fname) < 0 ){
@@ -967,7 +964,7 @@ int parser_eval (struct nel_eng *eng, char *filename, char *retval_loc, va_list 
 	if (val == 0) {
 		if (parser_eval_yy(eng) != 0 ) { 
 			nel_debug ({ nel_trace (eng, "] parser_eval error \nerror_ct = %d\n\n", eng->parser->error_ct); });
-			fclose(file);	/* wyong, 2006.10.14 */
+			fclose(file);
 			return -1;
 		}
 	}
@@ -979,18 +976,17 @@ int parser_eval (struct nel_eng *eng, char *filename, char *retval_loc, va_list 
 	/*******************************************************/
 	retval = eng->parser->error_ct;
 	parser_dealloc(eng);
-	fclose(file);	/* wyong, 2006.10.14 */
+	fclose(file);
 
 	nel_debug ({ nel_trace (eng, "] exiting parser_eval ()\nerror_ct = %d\n\n", eng->parser->error_ct); });
 	if(old_parser != NULL ) {
-		nel_dealloca(eng->parser);	//added by zhangbin, 2006-7-20
+		nel_dealloca(eng->parser);
 		eng->parser = old_parser;
 	}
 
 	return 0;
 }
 
-//xiayu 2006.1.19 add syntax checking
 int do_nel_file_parse(struct nel_eng *eng, char *filename)
 {
 	nel_jmp_buf return_pt;
@@ -1016,10 +1012,8 @@ int do_nel_file_parse(struct nel_eng *eng, char *filename)
 		return -1;
 	}
 
-	//added by zhangbin, 2006-6-9
 	cwd[strlen(cwd)+1]='\0';
 	cwd[strlen(cwd)]='/';
-	//end
 
 	//printf("do_nel_file_parse(20), cwd = %s\n", cwd ) ; 
 
@@ -1058,9 +1052,7 @@ int do_nel_file_parse(struct nel_eng *eng, char *filename)
 	if (val == 0) {
 		if ( parser_eval_yy(eng) != 0 ) { 
 			nel_debug ({ nel_trace (eng, "] parser_eval error \nerror_ct = %d\n\n", eng->parser->error_ct); });
-			//added by zhangbin, 2006-10-11
 			fclose(file);
-			//end
 			return -1;
 		}
 	}
@@ -1075,9 +1067,7 @@ int do_nel_file_parse(struct nel_eng *eng, char *filename)
 
 	nel_debug ({ nel_trace (eng, "] exiting parser_eval ()\nerror_ct = %d\n\n", eng->parser->error_ct); });
 
-	//added by zhangbin, 2006-10-11
 	fclose(file);
-	//end
 	return retval;
 }
 
@@ -1090,22 +1080,20 @@ int nel_file_parse(struct nel_eng *eng, int argc, char **argv)
 		nel_trace(eng, "entering nel_file_parse()\n"); 
 	});
 
-	//added by zhangbin, 2006-7-26
 	eng->nel_file_num = argc;
 	eng->nel_file_name = argv;
-	//end
 	
 	for (i=0; i<argc; i++) {
 		if( (retval = do_nel_file_parse(eng, argv[i])) != 0 ){
 			nel_debug ({ nel_trace (eng, "can't parse file %s", argv[i]); });
-			return retval; /* wyong, 2006.4.10 */ 
+			return retval; 
 		}
 	}
 
-	//added bu zhangbin, 2006-5-15
-	if(eng->peek_arg_link_begin)
+	//only work at test branch
+	if(eng->peek_arg_link_begin) { 
 		PrintPeekInfo(eng);
-	//end
+	}
 	
 	
 	if(eng->init_head != NULL && eng->compile_level != 1 ) {
@@ -1117,7 +1105,7 @@ int nel_file_parse(struct nel_eng *eng, int argc, char **argv)
 
 	if ( (retval = nel_generator(eng)) != 0) { 
 		nel_debug ({ nel_trace (eng, "] nel_generator error\n"); });
-		return retval;		/* wyong, 2006.4.10 */
+		return retval;
 	}
 	
 	if(eng->main != NULL && eng->compile_level != 1 ) {

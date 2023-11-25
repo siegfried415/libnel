@@ -12,23 +12,6 @@
 #define _NEL_TYPES_
 
 
-#if 0
-//#include "prod.h"
-
-typedef unsigned int StateId;
-
-// encodes an action in 'action' table; see 'actionTable'
-typedef int ActionEntry;
-
-// encodes a destination state in 'gotoTable'
-typedef unsigned int GotoEntry;
-
-// names a nonterminal using an index
-//typedef int NtIndex;
-//typedef unsigned int StateId;
-typedef int SymbolId;
-#endif
-
 /*************************************/
 /* support for new ansi C data types */
 /*************************************/
@@ -73,7 +56,6 @@ typedef int SymbolId;
 /* most machines align 8 byte doubles on 8 byte boundaries, and the     */
 /* CRAY_YMP aligns 16 bytes doubles on a word (8 byte) boundary).       */
 /************************************************************************/
-//4->8, wyong , 20230821 
 #define nel_MAX_ALIGNMENT	8
 
 
@@ -99,7 +81,6 @@ typedef int SymbolId;
 /* use nel_align_offset () to align the offset from a memory  */
 /* address offset (an int) instead of the address itself.    */
 /*************************************************************/
-/*bugfix, wyong, 2005.6.11 */
 #define nel_align_offset_ex(_offset,_alignment) \
 	((_offset) + ((_alignment) - ((((_offset) - 1) % (_alignment)) + 1)))
 
@@ -182,7 +163,7 @@ typedef enum nel_D_TOKEN {
         nel_D_LONG_DOUBLE,
         nel_D_LONG_FLOAT,	/* same as double			*/
         nel_D_LONG_INT,
-        nel_D_LONG_LONG,	/* wyong, 2005.4.15 */ 
+        nel_D_LONG_LONG,
         nel_D_POINTER,
         nel_D_SHORT,
         nel_D_SHORT_INT,
@@ -206,7 +187,7 @@ typedef enum nel_D_TOKEN {
         nel_D_UNSIGNED_INT,
         nel_D_UNSIGNED_LONG,
         nel_D_UNSIGNED_LONG_INT,
-        nel_D_UNSIGNED_LONG_LONG,	/* wyong, 2005.4.15 */ 
+        nel_D_UNSIGNED_LONG_LONG,
         nel_D_UNSIGNED_SHORT,
         nel_D_UNSIGNED_SHORT_INT,
         nel_D_VOID,
@@ -356,6 +337,8 @@ typedef union nel_TYPE {
                 /* recursing infinetely			*/
                 unsigned_int size;		/* size in bytes 	*/
                 unsigned_int alignment; 	/* n-byte bndry for allocation*/
+
+		union nel_TYPE *next ; 	
         }
         simple;
 
@@ -372,6 +355,7 @@ typedef union nel_TYPE {
 		unsigned_int traversed:1;
                 unsigned_int size;
                 unsigned_int alignment;
+		union nel_TYPE *next ; 	
 
 		unsigned_int known_lb:1;	/* true if we integral value for bound	*/
 		unsigned_int known_ub:1;	/* is evaluated.	*/
@@ -405,6 +389,8 @@ typedef union nel_TYPE {
 		unsigned_int traversed:1;
                 unsigned_int size;
                 unsigned_int alignment;
+		union nel_TYPE *next ; 
+
                 struct nel_SYMBOL *tag;	/* symbol table entry for tag		*/
                 unsigned_int nconsts;	/* #of constants in this enumed type	*/
                 struct nel_LIST *consts;	/* list of structs for each const	*/
@@ -423,6 +409,8 @@ typedef union nel_TYPE {
 		unsigned_int traversed:1;
                 unsigned_int size;
                 unsigned_int alignment;
+		union nel_TYPE *next ; 
+
                 struct nel_STAB_TYPE *stab_types;	/* list of type #'s		*/
                 struct nel_LIST *routines;		/* list of routines		*/
                 struct nel_LIST *static_globals;	/* idents local to comp unit	*/
@@ -444,6 +432,7 @@ typedef union nel_TYPE {
 		unsigned_int traversed:1;
                 unsigned_int size;
                 unsigned_int alignment;
+		union nel_TYPE *next ; 	
 
 		unsigned_int new_style:1;
 		unsigned_int var_args:1;	/* var #of args ? (also 1 if old-style)	*/
@@ -453,7 +442,7 @@ typedef union nel_TYPE {
                 /* (compiled functions only)		*/
                 struct nel_SYMBOL *file;	/* symbol for file function appears in	*/
 
-                unsigned_int key_nums; 		/* wyong */
+                unsigned_int key_nums; 	
                 struct nel_SYMBOL *prev_hander;	/* */
                 struct nel_SYMBOL *post_hander;	/* */
 
@@ -472,6 +461,8 @@ typedef union nel_TYPE {
 		unsigned_int traversed:1;
                 unsigned_int size;
                 unsigned_int alignment;
+		union nel_TYPE *next ; 	
+
                 union nel_TYPE *deref_type; /* type desc for dereferenced ptr	*/
         }
         pointer;
@@ -494,6 +485,8 @@ typedef union nel_TYPE {
 		unsigned_int traversed:1;
                 unsigned_int size;
                 unsigned_int alignment;
+		union nel_TYPE *next ; 	
+
                 struct nel_STAB_TYPE *stab_type;/* nel_stab_type_hash table	entry	*/
         }
         stab_undef;
@@ -510,6 +503,8 @@ typedef union nel_TYPE {
 		unsigned_int traversed:1;
                 unsigned_int size;
                 unsigned_int alignment;
+		union nel_TYPE *next ; 	
+
                 struct nel_SYMBOL *tag;	/* symbol table entry for tag		*/
                 struct nel_MEMBER *members; /* list of structs for each member	*/
         }
@@ -531,6 +526,8 @@ typedef union nel_TYPE {
 		unsigned_int traversed:1;
                 unsigned_int size;
                 unsigned_int alignment;
+		union nel_TYPE *next ; 
+
                 union nel_TYPE *descriptor;/* type descriptor this is a name for	*/
         }
         tag_name;
@@ -556,6 +553,8 @@ typedef union nel_TYPE {
 		unsigned_int traversed:1;
                 unsigned_int size;
                 unsigned_int alignment;
+		union nel_TYPE *next ; 
+
                 union nel_TYPE *descriptor;/* type descriptor this is a name for	*/
         }
         typedef_name;
@@ -569,13 +568,14 @@ typedef union nel_TYPE {
 		unsigned_int traversed:1;
                 unsigned_int size;
                 unsigned_int alignment;
+		union nel_TYPE *next ; 
 
                 int token_type;			/* nel_D_TERMINAL, nel_D_NONTERMINAL */
                 int prec;			/* event 's precedencei, no use */
                 int assoc;			/* event 's associativity, no use */
                 struct nel_SYMBOL *init_hander;	/*init function defined by user,
-						only $0 was supported now.wyong
-						2005.10.27 */
+						only $0 was supported now. */
+
                 struct nel_SYMBOL *free_hander;	/* free function defined by user*/
 
                 //struct nel_SYMBOL *default_class;	/* default classifier for this event */
@@ -603,13 +603,14 @@ typedef union nel_TYPE {
 		unsigned_int traversed:1;
                 unsigned_int size;
                 unsigned_int alignment;
+		union nel_TYPE *next ; 	
                 //nel_D_token type;
 
 		int rel;
                 struct nel_SYMBOL *lhs;	/*left hand side; must be nonterminal */
                 struct nel_RHS *rhs;	/*list of structs for each arg*/
                 struct nel_RHS *stop;	/* */
-		union  nel_STMT *stmts; /* wyong, 2006.6.5 */
+		union  nel_STMT *stmts; 
                 int rhs_num;		/* length of RHS */
                 int precedence;		/*precedence level for disambiguation */
                 struct nel_SYMBOL *action;	/* production 's action function symbol */
@@ -961,10 +962,8 @@ extern struct nel_SYMBOL *nel_short_unsigned_symbol;
 extern struct nel_SYMBOL *nel_unsigned_short_int_symbol;
 extern struct nel_SYMBOL *nel_short_unsigned_int_symbol;
 extern struct nel_SYMBOL *nel_void_symbol;
-//added by zhangbin, 2006-4-27
 extern struct nel_SYMBOL *nel_long_long_symbol;
 extern struct nel_SYMBOL *nel_unsigned_long_long_symbol;
-//end add
 
 
 /*************************************************************/
@@ -1031,16 +1030,18 @@ extern unsigned_int nel_type_incomplete (register union nel_TYPE *);
 void emit_type (FILE *file, register nel_type *type);
 int is_compatible_types(nel_type *type1, nel_type *type2);
 
-//added by zhangbin, 2006-5-25
 int is_asgn_compatible(struct nel_eng *eng, nel_type* type1, nel_type *type2);
-//end
-
-//added by zhangbin, 2006-7-19
 void list_dealloc(struct nel_eng *eng);
 void line_dealloc(struct nel_eng *eng);
 void type_dealloc(struct nel_eng *eng);
 void block_dealloc(struct nel_eng *eng);
 void member_dealloc(struct nel_eng *eng);
-//end
+
+int __lookup_item_from(struct nel_LIST **plist, struct nel_SYMBOL *symbol);
+int nel_coerce (struct nel_eng *eng, nel_type *new_type, char *new_value, nel_type *old_type, char *old_value);
+int nel_extract_bit_field (struct nel_eng *eng, nel_type *type, char *result, unsigned_int word, register unsigned_int lb, register unsigned_int size);
+
+int s_u_has_member(struct nel_eng *eng, nel_type *type, struct nel_SYMBOL *member);
+
 #endif /* _NEL_TYPES_ */
 

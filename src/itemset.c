@@ -9,6 +9,7 @@
 #include "errors.h"
 #include "sym.h"
 #include "mem.h"
+#include "prod.h"
 
 extern struct nel_LIST *get_transition(struct nel_eng *eng, struct itemset *is, nel_symbol *sym);
 
@@ -260,7 +261,6 @@ void insert_itemset(struct nel_eng *eng, struct itemset *is)
 		 eng->gen->itemSets = is;
 	}
 
-	/* wyong, 2004.11.26 */
 	is->next = NULL;
 }
 
@@ -278,7 +278,7 @@ struct itemset *itemset_alloc(struct nel_eng *eng)
 	is->id = eng->numStates++;
 	is->nonkernelItems = NULL;
 	is->kernelItems = NULL;
-	//is->timeout = 0;	/* BUG fix, wyong, 2005.1.10 */
+	//is->timeout = 0;
 
 	nel_malloc(is->termTransition,eng->numTerminals, struct nel_LIST *);
 	for(i=0; i< eng->numTerminals; i++) {
@@ -291,7 +291,7 @@ struct itemset *itemset_alloc(struct nel_eng *eng)
 	}
 
 	is->next = NULL;
-	is->next_transition = NULL;	/* wyong, 2006.9.22 */
+	is->next_transition = NULL;
 	return is;
 }
 
@@ -299,33 +299,15 @@ void itemset_dealloc(struct nel_eng *eng, struct itemset *is)
 {
 	if(is) {
 		if(is->termTransition) {
-			//modified by zhangbin, 2006-7-17
-#if 1
-			nel_free(is->termTransition);	//nel_dealloca(is->termTransition); zhangbin, 2006-10-12
-#else
-			free(is->termTransition);
-#endif
-			//end
+			nel_free(is->termTransition);
 		}
 
 		if(is->nontermTransition){
-			//modified by zhangbin, 2006-7-17
-#if 1
-			nel_free(is->nontermTransition);	//nel_dealloca(is->nontermTransition); zhangbin, 2006-10-12
-#else
-			free(is->nontermTransition);
-#endif
-			//end
+			nel_free(is->nontermTransition);
 		}
 
 		eng->numStates--;
-		//modified by zhangbin, 2006-7-17
-#if 1
-		nel_free(is);	//nel_dealloca(is); zhangbin, 2006-10-12
-#else
-		free(is);
-#endif
-		//end
+		nel_free(is);	
 	}
 
 }

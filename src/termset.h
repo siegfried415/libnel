@@ -28,7 +28,4 @@ int termset_iszero(struct nel_eng *eng, TerminalSet *ts);
 void termset_init(TerminalSet *ts, int numTerms);
 void emit_termset(struct nel_eng *eng,FILE *fp, TerminalSet *ts);
 
-
-
-
 #endif

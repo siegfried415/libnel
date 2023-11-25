@@ -11,12 +11,12 @@
 #include <alloca.h>
 #endif /* !alloca */
 
-//added by zhangbin, 2006-7-17
 void mem_checkAll();
 unsigned char *Realloc(unsigned char *buf, int size, char *file, int line);
 unsigned char *Malloc(int size, char *file, int line);
 unsigned char *Calloc(int nobj, int objsize, char *file, int line);
 void Free(unsigned char *buf, char *file, int line);
+
 #define PATCH_SIZE 4
 #define MEM_PATCH 0
 
@@ -34,7 +34,6 @@ void Free(unsigned char *buf, char *file, int line);
 
 #define nel_lock(x)
 #define nel_unlock(x)
-//end, 2006-7-17
 
 #ifdef DEBUG_MALLOC
 #define nel_malloc(_loc,_nobj,_type) \
@@ -56,7 +55,6 @@ void Free(unsigned char *buf, char *file, int line);
 	}
 #endif
 
-//added by zhangbin, 2006-10-9
 #ifdef DEBUG_CALLOC
 #define nel_calloc(_loc,_nobj,_type)				\
 	{												\
@@ -96,7 +94,6 @@ void Free(unsigned char *buf, char *file, int line);
 	   (_loc) = __tmp;								\
 	}
 #endif
-//end
 
 #ifdef DEBUG_MALLOC
 #define checksum() mem_checkAll()
@@ -104,7 +101,6 @@ void Free(unsigned char *buf, char *file, int line);
 #define checksum()
 #endif
 
-//added by zhangbin, 2006-10-12
 #ifdef DEBUG_FREE
 #define nel_free(_loc)						\
 {								\
@@ -119,7 +115,6 @@ void Free(unsigned char *buf, char *file, int line);
 }
 #endif
 
-//end, 2006-10-12
 
 /********************************************************************/
 /* on CRAY_YMP, alloca () does not exists, so we must use malloc () */
@@ -128,9 +123,7 @@ void Free(unsigned char *buf, char *file, int line);
 /* space will not be reclaimed.                                     */
 /********************************************************************/
 #define nel_alloca(_loc,_nobj,_type)	nel_malloc ((_loc), (_nobj), _type)
-//added by zhangbin, 2006-10-12
 #define nel_dealloca(_loc) 	nel_free(_loc)
-//end 2006-10-12
 
 
 /**********************************************************************/
@@ -161,7 +154,6 @@ void Free(unsigned char *buf, char *file, int line);
 	}
 
 
-
 /*****************************************************/
 /* zero out _bytes bytes starting at *_dest          */
 /* try to do as many word-length writes as possible, */
@@ -172,7 +164,7 @@ void Free(unsigned char *buf, char *file, int line);
 	{								\
 	   register unsigned_char *__dest = (unsigned_char *) (_dest);	\
 	   register int __bytes = (_bytes);				\
-	   register int __offset = ((unsigned_int) _dest) % (sizeof (int)); \
+	   register int __offset = ((unsigned_long) _dest) % (sizeof (int)); \
 	   register int *__ip;						\
 	   if (__offset > 0) {						\
 	      __offset = sizeof (int) - __offset;			\
@@ -190,9 +182,5 @@ void Free(unsigned char *buf, char *file, int line);
 	   }								\
 	}
 
-void comp_free(void *ptr);
-void *comp_malloc(unsigned long size);
-void *comp_mallocz(unsigned long size);
-void *comp_realloc(void *ptr, unsigned long size);
 
 #endif
