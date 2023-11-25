@@ -37,7 +37,6 @@
 #include "mem.h"
 #include "evt.h"
 #include "nlib.h"
-#include "peek.h" 
 
 static int parse_complex_type(struct nel_eng *eng, const char **pp);
 static FILE *stab_debug_file;
@@ -6314,7 +6313,6 @@ int stab_file_parse(struct nel_eng *eng, char *filename)
 	FILE *file;		/* opened on filename			*/
 	int i;			/* counter var				*/
 	int retval = -1;	/* return val: # of symbols parsed      */
-	peek_arg_link_t *this, *next;
 
 	nel_debug ({ 
 		stab_trace(eng, "entering stab_file_parse [\nfilename = %s\n\n", filename); 
@@ -6763,9 +6761,6 @@ post_stab:
 
 
 end:
-	if(eng->peek_arg_link_begin)
-		PrintPeekInfo(eng);
-
 	if(eng->stab_debug_level ) {
 		nel_symbol *test_t_symbol; 
 		//test_t_symbol = stab_lookup_ident(eng, "stream");
@@ -6781,11 +6776,6 @@ end:
 		}
 	}
 
-	//for(this = eng->peek_arg_link_begin; this ; this = next){
-	//	next = this->next;
-	//	free (this);
-	//}
-		
 
 	if (ld_str_tab != NULL) {
 		nel_dealloca (ld_str_tab);

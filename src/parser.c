@@ -19,8 +19,6 @@
 #include "evt.h" 
 #include "gen.h" 
 
-#include "peek.h" 
-
 #ifdef LICENSE
 #include <license.h>
 #endif
@@ -1090,12 +1088,6 @@ int nel_file_parse(struct nel_eng *eng, int argc, char **argv)
 		}
 	}
 
-	//only work at test branch
-	if(eng->peek_arg_link_begin) { 
-		PrintPeekInfo(eng);
-	}
-	
-	
 	if(eng->init_head != NULL && eng->compile_level != 1 ) {
 		if ((retval = intp_eval_stmt_2 (eng, eng->init_head)) != 0 ) {
 			nel_debug ({ nel_trace (eng, "can't execute init"); });

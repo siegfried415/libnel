@@ -31,15 +31,6 @@ void *realloc(void *ptr, size_t size);
 #define nel_debug(_x)
 #endif /* NEL_DEBUG */
 
-struct peek_arg_link
-{
-	char type;
-	char *name;
-	struct peek_arg_link *next;
-};
-typedef struct peek_arg_link peek_arg_link_t;
-
-
 #define NEL_TRACE_LEVEL	3
 #define NEL_OVER_LEVEL	2	
 #define NEL_DIAG_LEVEL	2	
@@ -80,9 +71,6 @@ struct nel_eng {
 	int intp_init_flag ;
 	int lr_init_flag ;
 	int comp_init_flag ;
-
-	peek_arg_link_t *peek_arg_link_begin ;
-	int global_set_peek_flag ;
 
 	unsigned int stab_debug_level : 1;
 	unsigned int term_debug_level : 1;

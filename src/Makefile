@@ -4,7 +4,6 @@
 
 INC_DIR		= ../include
 NLIB_DIR 	= ./nlib
-TEST_DIR	= ./testsuite
 
 LIBNEL_INSTALL_DIR	= /usr/local/lib
 LIBNEL_INC_INSTALL_DIR	= /usr/local/include/nel
@@ -12,14 +11,13 @@ LIBNEL_INC_FILES= ${INC_DIR}/engine.h ${INC_DIR}/analysis.h ${INC_DIR}/intlist.h
 
 DYN_NEL		= libnel.so
 DYN_NLIB	= libnlib.so
-RUNTEST		= /opt/dejagnu-1.4.4/runtest
 
 CFLAGS	      	= -I. -I${INC_DIR} -DNEL_NTRP -DNEL_STAB -DSTAB_DEBUG -DNEL_DEBUG -ldl -g 
 NEL_SRCS	=analysis.c nel.yacc.c gen.c lex.c stab.c mem_pool.c \
 		type.c  engine.c sym.c intrns.c class.c dec.c opt.c io.c \
 		prod.c evt.c expr.c stmt.c intp.c errors.c parser.c item.c \
 		itemset.c termset.c dprod.c mem.c \
-		free_func.c action.c intlist.c peek.c
+		free_func.c action.c intlist.c 
 
 nel.yacc.c:     nel.y
 		bison $< 
@@ -55,17 +53,6 @@ uninstall-libnel:
 uninstall-libnlib:
 		cd $(NLIB_DIR) && $(MAKE) uninstall-libnlib 
 
-
-
-###############################  TEST ##########################################
-stab-test	: install-libnel install-libnlib
-		cp -f $(TEST_DIR)/config/stab $(TEST_DIR)/config/default.exp
-		${RUNTEST} -tool gcc -srcdir $(TEST_DIR)
-nel-test	: install-libnel install-libnlib
-		cp -f  $(TEST_DIR)/config/intp $(TEST_DIR)/config/default.exp
-		${RUNTEST} -tool nel -srcdir $(TEST_DIR) 
-test		: nel-test stab-test
-		echo "test over..."	
 
 
 ############################## all  ############################################
