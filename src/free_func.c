@@ -17,37 +17,6 @@
 #include "opt.h"
 #include "prod.h"
 
-//#include "comp.h"
-
-/* 
-int evt_free_func_compile(struct nel_eng *eng)
-{
-	unsigned long val;
-	nel_symbol *func, *sym;
-	int flag=0;
-
-	sym = eng->terminals;
-	while(sym) {
-		if((func = sym->type->event.free_hander)) {
-			// compile the func to machine code directly 
-			if ( comp_compile_func(eng, func) < 0 ){
-				printf("error in compiling %s\n", sym->name );
-				return -1;
-			}
-		}	
-
-		sym = sym->next;
-		if ( !sym && flag == 0 ) {
-			sym = eng->nonterminals;
-			flag ++;
-		}
-	}
-
-	return 0;
-}
-*/
-
-		
 nel_symbol *evt_free_func_symbol_alloc(struct nel_eng *eng, FILE *fp, nel_symbol *func) 
 {
 	if(eng->compile_level > 0){

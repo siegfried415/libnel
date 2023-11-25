@@ -40,9 +40,6 @@
 #include "prod.h"
 #include "mem.h"
 
-//#include "comp_elf.h"
-//#include "comp_io.h"
-
 /*****************************************************************************/
 /* nel_D_name () returns the string that is the identifier for <D_token>, an  */
 /* nel_D_token used as the discriminator in the type descriptors.             */

@@ -1001,7 +1001,6 @@ dec_specs declarator pre_formals formal_dec_list post_formals block {
 		nel_global_def (eng, function->name, function->type, nel_static_C_token (function->class), (char *) (eng->parser->stmts), 0);
 		
 
-		//if ( comp_compile_func(eng, function) < 0 ) {
 		if (create_classify_func(eng, function) < 0 ) { 
 			parser_fatal_error (eng, "error in compiling %s\n", function->name );
 		}
@@ -1031,7 +1030,6 @@ declarator pre_formals formal_dec_list post_formals block {
 		/**********************************************/
 		nel_global_def (eng, function->name, function->type, nel_static_C_token (function->class), (char *) (eng->parser->stmts), 0);
 	
-		//if ( comp_compile_func(eng, function) < 0 ) {
 		if (create_classify_func(eng, function) < 0 ) { 
 			parser_fatal_error (eng, "error in compiling %s\n", function->name );
 		}

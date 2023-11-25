@@ -16,8 +16,6 @@
 #include "action.h"
 #include "prod.h"
 
-//#include "comp.h"
-
 
 /************************************************************************/
 /* will create a func call					 	*/
@@ -583,8 +581,6 @@ int create_term_classify_func (struct nel_eng *eng)
 			if ( (func = SYM_OF_TERM_CLASS(eng, sid, 
 				encodeSymbolId(eng, tid, nel_C_TERMINAL)))) { 
 			
-				// compile the func to machine code directly 
-				//if ( comp_compile_func(eng, func) < 0 ){
 				if ( create_classify_func(eng, func) < 0 ){
 					printf("error in compiling %s\n", func->name );
 					return -1;
@@ -609,8 +605,6 @@ int create_nonterm_classify_func(struct nel_eng *eng)
 			if((func = SYM_OF_NONTERM_CLASS(eng,sid, 
 				encodeSymbolId(eng, nid, nel_C_NONTERMINAL)))) {
 				
-				// compile the func to machine code directly 
-				//if ( comp_compile_func(eng, func) < 0 ) {
 				if ( create_classify_func (eng, func) < 0 ) {
 					printf("error in compiling %s\n", func->name );
 					return -1;
@@ -929,8 +923,6 @@ void emit_nonterm_class(struct nel_eng *eng )
 
 int class_alloc(struct nel_eng *eng)
 {
-	//comp_init(eng);
-
 	/* first generator term and nonterm class function */
 	if(term_classify_alloc(eng) < 0 
 		|| nonterm_classify_alloc(eng) < 0) {
@@ -953,12 +945,8 @@ int class_alloc(struct nel_eng *eng)
 
 	/* evt_free_func and reduction should are not compiled at 
 	parser time (in nel.y), because generator would modify them */
-	//evt_free_func_compile(eng);
-	reduction_action_compile(eng);
+	create_reduction_action(eng);
 
-	// link and load only when eng->compile_level == 2 
-	//comp_relocate(eng);
-	
 	return 0;
 }
 

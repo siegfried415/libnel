@@ -21,8 +21,6 @@
 #include "parser.h"
 #include "intrns.h"
 
-//#include "comp.h"
-
 /*****************************************************************************/
 /* nel_R_name () returns the string that is the identifier for <code>, a      */
 /* nel_R_token representing the type of an nel_eng.                       */
@@ -122,7 +120,6 @@ void nel_init(struct nel_eng *eng )
 		}
 
 		nel_ntrn_init (eng);
-		//comp_init(eng);
 		gen_init(eng);
 
 		eng->init_flag = 1;
@@ -141,14 +138,6 @@ struct nel_eng *nel_eng_alloc(void)
 		nel_init( eng );
 	}
 
-// move it into eng_init()
-#if 0		
-	//if(eng->compile_level > 0) {
-		comp_init(eng);
-	//}
-
-	gen_init(eng);
-#endif
 	return eng;
 }
 
@@ -167,9 +156,6 @@ void nel_eng_dealloc(struct nel_eng *eng)
 
 	if(eng->gen)
 		gen_dealloc(eng);
-
-	//if(eng->comp)
-	//	comp_dealloc(eng);
 
 	if(eng->parser)
 		nel_dealloca(eng->parser); 
@@ -228,7 +214,6 @@ int nel_eng_restart(struct nel_eng *eng)
 	unsigned int parser_verbose_level = eng->parser_verbose_level;
 	unsigned int intp_verbose_level = eng->intp_verbose_level;
 
-	//unsigned int comp_verbose_level = eng->comp_verbose_level;
 	unsigned int gen_verbose_level = eng->gen_verbose_level;
 	char *prog_name = eng->prog_name;
 	char **nel_file_name = eng->nel_file_name;
@@ -256,8 +241,6 @@ int nel_eng_restart(struct nel_eng *eng)
 	eng->analysis_verbose_level = analysis_verbose_level;
 	eng->parser_verbose_level = parser_verbose_level;
 	eng->intp_verbose_level = intp_verbose_level;
-
-	//eng->comp_verbose_level = comp_verbose_level;
 
 	eng->gen_verbose_level = gen_verbose_level;
 	eng->prog_name = prog_name;

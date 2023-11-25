@@ -17,9 +17,7 @@
 #include "prod.h"
 #include "action.h"
 
-//#include "comp.h"
-
-int reduction_action_compile(struct nel_eng *eng)
+int create_reduction_action(struct nel_eng *eng)
 {
 	struct nel_SYMBOL *prod;
 	unsigned long val ;
@@ -28,8 +26,6 @@ int reduction_action_compile(struct nel_eng *eng)
 	for(prod = eng->productions; prod; prod=prod->next){
 		if((func = prod->type->prod.action) != NULL) {
 
-			// compile the func to machine code directly 
-			//if ( comp_compile_func(eng, func) < 0 ) {
 			if ( create_classify_func ( eng, func) < 0 ) { 
 				printf("error in compiling %s\n", func->name );
 				return -1;
