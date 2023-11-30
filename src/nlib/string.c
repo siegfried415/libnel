@@ -43,10 +43,10 @@ int string_init(struct nel_eng *eng)
 	symbol = nel_lookup_symbol("nel_strcmp", eng->nel_static_ident_hash, eng->nel_static_location_hash,  NULL);
 	if(symbol == NULL) {
 		type = nel_type_alloc(eng, nel_D_POINTER, sizeof(char *), nel_alignment_of(char *), 0, 0, nel_char_type);
-		symbol = nel_static_symbol_alloc(eng, nel_insert_name(eng,"data1"), type, NULL, nel_C_FORMAL, nel_lhs_type(type), nel_L_C, 1);
+		symbol = nel_static_symbol_alloc(eng, nel_insert_name(eng,"data2"), type, NULL, nel_C_FORMAL, nel_lhs_type(type), nel_L_C, 1);
 		args = nel_list_alloc(eng, 0, symbol, NULL);
 
-		symbol = nel_static_symbol_alloc(eng, nel_insert_name(eng,"data2"), type, NULL, nel_C_FORMAL, nel_lhs_type(type), nel_L_C, 1);
+		symbol = nel_static_symbol_alloc(eng, nel_insert_name(eng,"data1"), type, NULL, nel_C_FORMAL, nel_lhs_type(type), nel_L_C, 1);
 		args = nel_list_alloc(eng, 0, symbol, args);
 
 		
@@ -66,7 +66,7 @@ int string_init(struct nel_eng *eng)
 
 	}
 	else {
-		/* strstr was successfully inserted */
+		/* strcmp was successfully inserted */
 	}
 
 	/*
@@ -76,11 +76,11 @@ int string_init(struct nel_eng *eng)
 	symbol = nel_lookup_symbol("nel_strstr", eng->nel_static_ident_hash, eng->nel_static_location_hash,  NULL);
 	if(symbol == NULL) {
 		type = nel_type_alloc(eng, nel_D_POINTER, sizeof(void *), nel_alignment_of(char *), 0, 0, nel_char_type);
-		symbol = nel_static_symbol_alloc(eng, nel_insert_name(eng,"data1"), type, NULL, nel_C_FORMAL, nel_lhs_type(type), nel_L_C, 1);
+		symbol = nel_static_symbol_alloc(eng, nel_insert_name(eng,"data2"), type, NULL, nel_C_FORMAL, nel_lhs_type(type), nel_L_C, 1);
 		args = nel_list_alloc(eng, 0, symbol, NULL);
 
 
-		symbol = nel_static_symbol_alloc(eng, nel_insert_name(eng,"data2"), type, NULL, nel_C_FORMAL, nel_lhs_type(type), nel_L_C, 1);
+		symbol = nel_static_symbol_alloc(eng, nel_insert_name(eng,"data1"), type, NULL, nel_C_FORMAL, nel_lhs_type(type), nel_L_C, 1);
 		args = nel_list_alloc(eng, 0, symbol, NULL);
 
 
