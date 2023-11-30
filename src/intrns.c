@@ -246,7 +246,6 @@ nel_symbol *nel_ntrn_idof (struct nel_eng *eng, register nel_symbol *func, regis
 	return (retval);
 }
 
-#if 0
 /*****************************************************************************/
 /* nel_ntrn_new() call malloc to create memory				     */
 /*****************************************************************************/
@@ -291,9 +290,7 @@ nel_symbol *nel_ntrn_new(struct nel_eng *eng, register nel_symbol *func, registe
 	nel_debug ({ nel_trace (eng, "] exiting nel_ntrn_new\nretval = \n%S\n", retval); });
 	return (retval);
 }
-#endif
 
-#if 0
 /*****************************************************************************/
 /* nel_ntrn_delete() free memory created by nel_ntrn_new                     */
 /*****************************************************************************/
@@ -337,7 +334,6 @@ nel_symbol *nel_ntrn_delete(struct nel_eng *eng, register nel_symbol *func, regi
 	nel_debug ({ nel_trace (eng, "] exiting nel_ntrn_delete\nretval = \n%S\n", retval); });
 	return (retval);
 }
-#endif
 
 
 nel_symbol *nel_ntrn_register_init(struct nel_eng *eng, register nel_symbol *func, register int nargs, register nel_stack *arg_start)
@@ -632,7 +628,6 @@ post_getrec:
 	nel_insert_symbol (eng, symbol, eng->nel_static_ident_hash);
 
 
-#if 0 
 	/***************/
 	/* new() */
 	/***************/
@@ -648,7 +643,6 @@ post_getrec:
 	type = nel_type_alloc (eng, nel_D_FUNCTION, 0, 0, 0, 0, 0, 1, nel_void_type, NULL, NULL, NULL);
 	symbol = nel_static_symbol_alloc (eng, nel_insert_name(eng, "delete"), type, (char *) nel_ntrn_delete, nel_C_INTRINSIC_FUNCTION, 0, nel_L_NEL, -1);
 	nel_insert_symbol (eng, symbol, eng->nel_static_ident_hash);
-#endif
 
 
 	/***************/
