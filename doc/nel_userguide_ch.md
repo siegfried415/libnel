@@ -806,8 +806,8 @@ int x = 2 ;
 <pre><em>
 foo(int x，int y)
 {
-    int i;   /*定义局部变量*/
-    <程序体>
+    int i;   /*定义局部变量*/
+    <程序体>
 }
 </em></pre>
 
@@ -819,8 +819,8 @@ foo(int x，int y)
 
 例如：
 <pre><em>
-int test;                 //定义全局变量
-void f(void);             //子函数说明
+int test;                 //定义全局变量
+void f(void);             //子函数说明
 
 void f (void)
 {
@@ -829,8 +829,8 @@ void f (void)
 
 init
 {
-    test=5;              //给全局变量赋值
-    f();                 //调用f()，test的值变为50
+    test=5;              //给全局变量赋值
+    f();                 //调用f()，test的值变为50
 }
 </em></pre>
   
@@ -871,7 +871,7 @@ NEL编译器看到extern 修饰的变量，就知道该变量是在其他文件�
 <pre><em>
 bar.nel：
 extern int i，j;     //说明将i，j从文件1中复制过来
-int func ()          //用户定义函数
+int func ()          //用户定义函数
 {
     return ( i + j );
 }
@@ -898,8 +898,8 @@ int m，n=1;               //定义全局变量，在初始化时m被清零，n�
 init
 {
     static int i=10，j;   //定义静态局部变量，初始化时i被赋10，j为0
-    int s;                //定义局部变量，不进行初始化，s值不确定
-    int k=i*5;            //定义局部变量，初始化时k被赋10 * 5 = 50
+    int s;                //定义局部变量，不进行初始化，s值不确定
+    int k=i*5;            //定义局部变量，初始化时k被赋10 * 5 = 50
 }
 </em></pre>
 
@@ -915,7 +915,7 @@ init
 
 一维数组的声明格式是：
 <pre><em>
-类型  变量名[长度];
+类型  变量名[长度];
 </em></pre>
 
 其中的"类型"是指数组中每个元素的数据类型，包括整型、字符型、指针型以及结构和联合，"长度"表达式必须为整形，并且其值大于0，例如：
@@ -925,7 +925,7 @@ char str[4];
 
 对于变量来说，变量的定义和初始化可以分离，与此不同，数组的初始化必须同数组的定义同时进行，数组的初始化的一般模式如下：
 <pre><em>
-类型  变量名[长度] = 初值表;
+类型  变量名[长度] = 初值表;
 </em></pre>
 
 初值表是用花括号括起来的初值序列，每个初值是一个表达式，例如：
@@ -944,7 +944,7 @@ char str2[] ={'a', 'b','c' };
 
 数组的类型除了上面所说的整型、字符型、指针型以及结构和联合，还可以是其他的数组，即构成多维数组，多维数组的一般说明格式是：
 <pre><em>
-类型  数组名[第1维长度] ...... [第n-1维长度] [第n维长度];*
+类型  数组名[第1维长度] ...... [第n-1维长度] [第n维长度];*
 </em></pre>
 
 例如，在下面我们定义了一个整数型的二维数组array：
@@ -959,7 +959,7 @@ array[0][0]，array[0][1]，array [0][2]，array[1][0]，array[1][1]，array [1]
 
 多维数组的初始化和一维的类似，但是是以递归的方式进行的，即初值表中每一个元素又是一个数组的初值表，例如：
 <pre><em>
-int array[2][3]={{2，-9，0}，{8，2，-5}}; 
+int array[2][3]={{2，-9，0}，{8，2，-5}}; 
 </em></pre>
 
 对于多维数组的初始化，只有第1维可以是不完整的，既可以不规定维数，而其他维必须明确地指定长度（即使可以从初值表中推断出该维的长度也是如此），例如：
@@ -1004,7 +1004,7 @@ int a[16]；
 
 指针是一种新的数据类型，指针型的变量的一般定义为：
 <pre><em>
-类型标识符  *标识符;
+类型标识符  *标识符;
 </em></pre>
 
 其中"标识符"是指针型变量的名字，标识符前的"\*"号，表示该变量是指针型变量，"类型标识符"表示该指针型变量所指向的变量的类型，例如：
@@ -1111,8 +1111,8 @@ static char * black_list[] = { "foo"， "bar"， "bla" };
 <pre><em>
 struct/union 结构名
 {
-    类型  成员名;
-    类型  成员名;
+    类型  成员名;
+    类型  成员名;
     ...
 };
 </em></pre>
@@ -1455,21 +1455,21 @@ init {
 |  最高        | ()(小括号) \[\](数组下标) .(结构成员) -\>(指针型结构成员)      |
 |              | \~(匹配) !\~(不匹配)                                          | 
 |              | !(逻辑非) \~(位取反) -(负号) ++(加1) \--(减1) &(变量地址)     |
-|              | \*(指针所指内容)  type(函数说明)                              | 
-|              | sizeof(长度计算) idof(事件id) ridof（类型）                   |
-|              | \*(乘)     /(除)     %(取模)                                  |
-|              | +(加)     -(减)                                               |  
-|              | \<\<(位左移)          \>\>(位右移)                            |
-|              | \<(小于)   \<=(小于等于)   \>(大于)   \>=(大于等于)            |
-|              | ==(等于)       !=(不等于)                                     |
-|              | &(按位与)                                                     |
-|              | \^(按位异或)                                                  |
-|              | \|(按位或)                                                    |
-|              | &&(逻辑与)                                                    |
-|              | \|\|(逻辑或)                                                  |
-|              | ?：(?表达式)                                                  |     
-|              | =    +=   -=(联合操作)                                        |
-|  最低        | ，(逗号运算符)                                                |    
+|              | \*(指针所指内容)  type(函数说明)                              | 
+|              | sizeof(长度计算) idof(事件id) ridof（类型）                   |
+|              | \*(乘)     /(除)     %(取模)                                  |
+|              | +(加)     -(减)                                               |  
+|              | \<\<(位左移)          \>\>(位右移)                            |
+|              | \<(小于)   \<=(小于等于)   \>(大于)   \>=(大于等于)            |
+|              | ==(等于)       !=(不等于)                                     |
+|              | &(按位与)                                                     |
+|              | \^(按位异或)                                                  |
+|              | \|(按位或)                                                    |
+|              | &&(逻辑与)                                                    |
+|              | \|\|(逻辑或)                                                  |
+|              | ?：(?表达式)                                                  |     
+|              | =    +=   -=(联合操作)                                        |
+|  最低        | ，(逗号运算符)                                                |    
 
 
 # 语句
@@ -1489,7 +1489,7 @@ if(表达式) {
 
 NEL首先判断表达式的值，如果表达式的值为真，则执行语句1，然后跳过语句2继续向下执行，如果表达式为假，则跳过语句1而执行语句2，条件执行语句中*"else {语句2;}"*部分可以省略，此时条件语句变成：
 <pre><em>
-if(表达式) {
+if(表达式) {
     语句1;
 }
 </em></pre>
@@ -1627,14 +1627,14 @@ NEL中所有函数在使用之前必须声明或定义。所谓"声明"是指对
 
 NEL中函数的说明方式和ANSI 方式是一致的，但不兼容K&R的早期模式：
 <pre><em>
-函数类型  函数名(数据类型  形式参数, 数据类型  形式参数, ...... );
+函数类型  函数名(数据类型  形式参数, 数据类型  形式参数, ...... );
 </em></pre>
 
 其中，函数类型是该函数返回值的数据类型，可以是以前介绍的整型、字符型、以及指针（包括结构指针），也可以是无值型（void），无值型表示函数没有返回值。
 
 函数名为函数的标识符，小括号中的内容为该函数的形式参数声明，如：
 <pre><em>
-char *foo(void);                //返回字符串指针，参数为空
+char *foo(void);                //返回字符串指针，参数为空
 void bar(int n，char *str);     //返回为空，两个参数，一个是int型，一个是char *型 
 </em></pre>
 
@@ -1643,7 +1643,7 @@ void bar(int n，char *str);     //返回为空，两个参数，一个是int型
 函数定义就是确定该函数完成什么功能以及怎么运行，如果一个函数已经被定义了，那么该函数等价于被声明过了，NEL对函数的定义方式如下：
 
 <pre><em>
-函数类型  函数名(数据类型 形式参数; 数据类型 形式参数 ... )
+函数类型  函数名(数据类型 形式参数; 数据类型 形式参数 ... )
 {
     函数体;
 }
@@ -2035,51 +2035,22 @@ C ： a (P($1，$2)) b ;
 
 ### 归结'：'
 
-"归结"是指事件A是在另外一个事件B的基础上规约得到的。比如利用shellcode检测函数对SMTP中的VRFY命令进行shellcode检测，其NEL规则如下：
+"归结"是指事件A是在另外一个事件B的基础上规约得到的。比如：
 <pre><em>
-event struct smtp_cmd_vrfy VRFY_SHELL_CODE;
-VRFY_SHELL_CODE : vrfy_req( has_x86_shellcode($1->mail_box，$1->mail_box_len)){
-    print("found machine instructions in ehlo command，this maybe a shell code!\n");
-    return \$1;*
+atom void *a;
+event void *B, *C;
+B : a ( p1 ) {
+    ......
 }
 ;
-
-BAD_VRFY_REQ : VRFY_SHELL_CODE {
-    return 0;
-}
-;
-</em></pre>
-
-上面的规则可以理解为：当事件分析引擎读入了一个vrfy_req事件，测试一下它是否满足has_x86_shellcode(\$1-\>mail_box，\$1-\>mail_box_len)，如果满足，根据该规则，我们得到了一个VRFY_SHELL_CODE事件，继而得到一个BAD_VRFY_REQ事件（因为没有需要进行检测的谓词），并打印相应的报警信息。
-
-![通过"归结"算符增加新的处理层](../image/user-guide/13-1.png)
-
-
-
-由于我们可以随时使用"归结"算符增加一个新的事件，这就使得我们可以方便地增加一个新的处理层，而不会对规则集的其他的部分产生影响。下面以C-Mail SMTP Server Remote Buffer Overflow 攻击为例来说明这点：
-<pre><em>
-event struct smtp_cmd_vrfy VRFY_SHELL_CODE;*
-event struct smtp_atk CMAIL_OVERFLOW;*
-
-CMAIL_OVERFLOW : VRFY_SHELL_CODE ($1->mail_box[0，$1->mail_box_len] \~ /\x83\xc1\x0A\xFF\xE1/ ){
-    smtp_deny($0，"Found a C-Mail SMTP Server Remote Buffer Overflow Exploit!\n");
-    return 0;*
-}
-;
-
-BAD_VRFY_REQ : CMAIL_OVERFLOW {
+C : B ( p2 ) {
     ......
 }
 ;
 </em></pre>
 
-请注意在上面的定义中，攻击事件"CMAIL_OVERFLOW"不是定义在协议分析引擎直接传递过来的"vrfy_req"原子事件之上，而是定义到"VRFY_SHELL_CODE"这个事件之上。也就是说，在上述"VRFY_SHELL_CODE"这个事件产生之后，如果"VRFY_SHELL_CODE"这个事件之上的事件还能满足*(\$1-\>mail_box \[ 0，\$1-\>mail_box_len \] \~ /\\x83\\xc1\\x0A\\xFF\\xE1/ ) *，那么它将形成一个 CMAIL_OVERFLOW事件，并将连接阻断。
+上面的规则可以理解为：当事件分析引擎读入了一个a(原子）事件，测试一下它是否满足p1谓词，如果满足，根据该规则，我们得到了一个B（抽象）事件，如果B满足p2谓词，则继续得到一个C（抽象）事件。
 
-![](../image/user-guide/13-2.png)
-
-这样，开发人员一开始可以根据某类攻击的抽象特征，制定一些抽象的检测规则，此后随着对攻击的深入了解，他可以在前者的基础之上建立起更加精确的检测规则。NEL语言的这种可扩充性使得开发人员在扩充规则的过程中，仍旧能够保持比较好的检测效率和描述能力。
-
-但是不加限制地使用这种技术，会使分析层次过多，从而使效率下降。NEL作者应该尽可能地写简单、高效的代码。
 
 ### 选择'\|'
 
@@ -2111,7 +2082,8 @@ A : B {
 
 "动作"是在事件规则之后用大括号"{"和"}"括起来的NEL语句。在这些语句中可以使用事件变量，比如：
 <pre><em>
-    smtp_rule_act ($0, rid, "found a long ehlo command!" );
+    print("found a long ehlo command!" );
+    smtp_deny ($0);
 </em></pre>
 
 该语句调用一个在协议分析引擎中定义的输出函数，将该SMTP连接的"阻断标识"置位，并进行报警和审计。
@@ -2258,40 +2230,7 @@ SMTP_ATK : BAD_EHLO_REQ {
 
 上述规则说明，*BAD_EHLO_REQ*、*BAD_HELO_REQ*、...和*BAD_Header*都是*SMTP_ATK*。而上面的*BAD_EHLO_REQ*是由满足什么样条件的*ehlo_req*派生而来则是由攻击规则开发人员去定义。上述这些事件定义和规则定义构成了一个攻击检测的框架。基于这个框架，攻击开发人员只需根据具体攻击的特征，对上述框架进行简单的扩充（如定义*BAD_EHLO_REQ*由何种*ehlo_req*派生而来），引擎就可以进行攻击检测了。
 
-NEL的事件规则定义能力，使我们可以方便地通过构造各种复杂的规则框架，来为攻击的定义提供简洁的调用接口。比如邮件正文部分的分析过程中，协议分析引擎将邮件正文中的信体作为"text"事件提交上来。其中，"text"事件的类型为*smtp_mime_data*，"text"事件中的事件变量未经过解码。由于它是一个基于字符缓冲区的数据结构，不能在"text"事件的基础上进行字符流的过滤，使得基于"text"只能定义简单的攻击检测规则。为了解决这个问题，我们可以定义一个TEXT事件，类型是struct stream，它的NEL规则如下：
-
-<pre><em>
-TEXT : text {
-           char *result; int result_len;
-           int off = 0 ;
-           struct stream *s;
-           smtp_mime_body_parse( $1->dt_data.dt_text.dt_data, 
-                                  $1->dt_data.dt_text.dt_length，
-                                  &off，
-                                  $1->dt_encoding，
-                                  &result，
-                                  &result_len);
-           s = nel_stream_alloc();
-           nel_stream_put(s，result，result_len);
-           return s;
-      }
-     | TEXT text {
-          char *result; int result_len;
-          int off = 0 ;
-          struct stream \*s;*
-          smtp_mime_body_parse($2->dt_data.dt_text.dt_data,
-                               $2->dt_data.dt_text.dt_length，
-                                &off，
-                               $2->dt_encoding，
-                               &result，
-                               &result_len);
-          nel_stream_put($1，result，result_len);
-          return $1;
-      }
-      ;
-</em></pre>
-
-由于"TEXT"事件变量中包含的是解码后的数据流，这样我们就可以对"TEXT"使用流匹配算符（"\~"）进行字符流过滤。
+NEL的事件规则定义能力，使我们可以方便地通过构造各种复杂的规则框架，来为攻击的定义提供简洁的调用接口。
 
 ##  nel_eng
 
@@ -2526,85 +2465,4 @@ NEL中维护的事件是有层次的，这种层次关系是协议分析引擎�
 
 开发人员应该根据自己的实际情况，选择适合的开发模式，以取得事倍功半的效果。
 
-##  重复匹配
 
-在大部分的情况下，一个包对应于一个事件，比如*EHLO*，*MAIL_FROM*等。但是事件在本质上只是一个抽象的概念，它和物理的包之间也可能并不存在一一对应的关系。比如，如果攻击规则的作者希望能够在邮件的正文中搜索某个特定的字符串，由于前面说过的原因，不可能从text事件进行，只能通过"TEXT"事件来做这件事：
-<pre><em>
-BAD_TEXT：TEXT( $1 ~ /fsdf/ ) {
-              smtp_deny($0，"found forbiden string in TEXT!\n\");
-          }
-          ;
-</em></pre>
-
-但是，我们发现该条规则在运行期间，如果在第二个TEXT中包含fsdf，将会出现两次匹配的问题。在解决这个问题之前，我们有必要了解以下事件分析引擎的抽象运行模型（在此之前，我们一直把事件分析引擎当作黑盒来处理），虽然对于编写简单的攻击规则，了解这个抽象模型不是必需的，但它的确可以加深开发者对于NEL推理机制的理解，便于写出更高效的NEL规则。
-
-我们还是以第14章中的SMTP规则为例，来说明这个问题：
-
-![分析线索分裂为两条](../image/user-guide/15-1.png)
-
-
-在上图中，在接收到第一个text事件的时候，该text既作为any存在又作为text事件存在，因此事件分析引擎的分析线索将分裂为两条thread1和thread2。在thread2中，所有的事件都被规约为ANY；而在thread1的分析栈中，将包括一个ANY事件和一个TEXT事件。由于第一个text中不包含asdf，因此TEXT没有规约为一个BAD_TEXT。
-
-![](../image/user-guide/15-2.png)
-
-
-当第二个text原子事件到达时，同理它也被thread2看成any和text来处理，而生成一个新的thread 3，原来的thread
-2中的事件又将全部归约为ANY，同时原来的thread1中的TEXT也可以和新接收text，形成一个新的TEXT。
-
-这样，thread 1 和thread 3 都可以接受text作为输入，并规约出TEXT事件，如果text中包含asdf，则thread1 和thread3将分别报告发现攻击。
-
-上述问题出现的根源在于thread3将第二个text也错误地认为是一串TEXT的开始，如果我们将攻击规则修改为：
-<pre><em>
-BAD_TEXT：sot TEXT( $2 ~ /fsdf/ ) {
-              smtp_rule_act( $0，rid, "found forbiden string in TEXT!");
-        }
-        ;
-</em></pre>
-
-其中sot是一个新的原子事件，当协议分析引擎看到第一个text时，就生成这样一个虚拟事件，然后再向事件分析引擎传第一个text事件，这样就避免了将第二个text再次认定为TEXT的错误。希望开发人员能够充分理解这部分的内容，它对于理解事件分析引擎的工作机制是非常有帮助的。
-
-##  扩充连接事件的结构体
-
-有时候，我们需要在"连接事件"上增加一些历史信息，并根据它们来进行后续的判断。但是"协议分析引擎"可能并没有在"连接事件"上为此预留对应的数据位，这时候我们就需要使用NEL的自定义结构体的功能来扩充\$0-\>user字段。比如我们要增加一个vrfy_cnt，来记录SMTP客户端发送的VRFY请求的次数，可以这样定义一个结构体：
-<pre><em>
-struct smtp_info_user{
-    int vrfy_cnt;*
-};
-</em></pre>
-
-在连接建立的时候，新建一个strut
-smtp_info_user，并用\$0-\>user指向它，然后对\$0-\>user-\>vrfy_cnt进行初始化：
-<pre><em>
-void nel_smtp_info_init(struct smtp_info *info) { 
-    if ((info->user=(void *)new(sizeof(struct smtp_info_user))) >=0 ){
-        ((struct smtp_info_user *)info->user)->vrfy_cnt = 0;
-    }
-    return;
-}
-</em></pre>
-
-在连接关闭的时候，使用以下函数释放掉\$1-\>user所占用的内存。
-<pre><em>
-void nel_smtp_info_free(struct smtp_info *info)
-{
-    if(info->user != 0){
-        delete(info->user);
-    }
-}
-</em></pre>
-
-不要忘了将这两个函数注册到"link"连接事件上去。
-<pre><em>
-init {
-    register_init(link，nel_smtp_info_init);
-    register_free(link，nel_smtp_info_free);
-}
-</em></pre>
-
-在此基础之上，开发者自定义的攻击规则可以这样编写：
-<pre><em>
-BAD_VRFY_REQ：vrfy_req ( ++((struct smtp_info_user *)$0->user)->vrfy_cnt > max_vrfy_cnt ) {
-                  smtp_deny($0，"found too much of VRFY command !\n");
-            }
-            ;
-</em></pre>
