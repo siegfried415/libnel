@@ -1785,7 +1785,7 @@ ms : match_init初始化的match_info；
 无。
 
 ### 精确串匹配
-1.  match_init
+1.  exact_match_init
 <pre><em>
 struct exact_match_info *exact_match_init(unsigned char **array, int array_size, int options)
 </em></pre>
@@ -1890,8 +1890,8 @@ len : 数据长度，
 
 "原子事件"使用关键字atom来修饰，"抽象事件"使用event来修饰，不论是"原子事件"还是"抽象事件"都拥有其类型：
 <pre><em>
-> event <类型> 抽象事件
-> atom <类型> 原子事件
+event <类型> 抽象事件
+atom <类型> 原子事件
 </em></pre>
 
 比如在HTTP的协议描述中，"抽象事件"GET_REQ使用下面的方式来定义：
